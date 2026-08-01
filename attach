@@ -18,6 +18,12 @@ dependency_checks() {
 		printf "uv not installed\n"
 		printf "%s\n" "${delimiter}"
 		exit 1
+	elif ! which adb 2>/dev/null 1>&2
+	then
+		printf "%s\n" "${delimiter}"
+		printf "android-tools not installed.\n"
+		printf "%s\n" "${delimiter}"
+		exit 1
 	elif [[ $(find . -maxdepth 1 -type f -name uv.lock) == "" ]]
 	then
 		printf "%s\n" "${delimiter}"
@@ -34,6 +40,17 @@ dependency_checks() {
 	then
 		printf "%s\n" "${delimiter}"
 		printf "Frida objection not installed. Install it with uv tool install objection\n"
+		printf "%s\n" "${delimiter}"
+		exit 1
+	fi
+}
+
+device_checks() {
+	devices=$(adb devices | tail -2 | head -1)
+	if [[ "${devices}" == "List of devices attached" ]]
+	then
+		printf "%s\n" "${delimiter}"
+		printf "No device connected\n"
 		printf "%s\n" "${delimiter}"
 		exit 1
 	fi
