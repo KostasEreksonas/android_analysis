@@ -63,7 +63,7 @@ dependency_checks
 # | Main Flow |
 #  -----------
 
-process=$(frida-ps -U | grep -i ${name})
+process=$(uv run frida-ps -U | grep -i ${name})
 process_count=$(echo "${process}" | wc -l)
 
 if [[ "${process_count}" -ne 1 ]]
