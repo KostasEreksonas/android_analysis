@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Attach frida objection onto Android application
-# Usage: ./attach <app-name>
+# Usage: attach <app-name>
 
 delimiter="================================================================"
 
@@ -94,6 +94,19 @@ attach_vanilla() {
 	done
 }
 
+get_pid() {
+	# Get process identifier of frida-server process
+	local c=2
+	local pid=$(adb shell ps -A | grep frida | cut -d " " -f ${c})
+
+	while [[ "${pid}" == "" ]]
+	do
+		pid=$(adb shell ps -A | grep frida | cut -d " " -f ${c}) && ((c++))
+	done
+
+	echo "${pid}"
+}
+
 restart_server() {
 	# Restart frida server on Android device (to prevent frida spawn errors)
 
@@ -101,7 +114,9 @@ restart_server() {
 	adb shell su -c 'killall frida-server'
 	printf "Stopped current Frida server process\n"
 	adb shell "su -c 'nohup /data/local/tmp/frida-server >/dev/null 2>&1 &'"
-	printf "Started a new frida-server instance. Restart successful\n"
+	pid=$(get_pid)
+	printf "Started a new frida-server instance with a PID: %d\n" "${pid}"
+	printf "Restart successful\n"
 	printf "%s\n" "${delimiter}"
 }
 
