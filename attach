@@ -56,10 +56,71 @@ device_checks() {
 	fi
 }
 
+vanilla_with_hook() {
+	# Running vanilla Frida with additional hooks
+	local process_name="${1}"
+
+	read -p "Please enter path to the hook JS file: " hook
+
+	printf "%s\n" "${delimiter}"
+	printf "Attaching Frida on process %d with hook %s\n" "${process_name}" "${hook}"
+	printf "%s\n" "${delimiter}"
+
+	uv run frida -U "${process_name}" -l "${hook}"
+}
+
+vanilla_without_hook() {
+	# Running vanilla Frida without additional hooks
+	local process_name="${1}"
+
+	printf "%s\n" "${delimiter}"
+	printf "Attaching Frida on process %s without additional hooks\n" "${process_name}"
+	printf "%s\n" "${delimiter}"
+	
+	uv run frida -U "${process_name}"
+}
+
+attach_vanilla() {
+	local process_name="${1}"
+	while true
+	do
+		read -p "Do you want to attach a hook to the process (press Q to break)? [Y/N] " hook
+		case "${hook}" in
+			[Yy]* ) vanilla_with_hook "${process_name}" ;;
+			[Nn]* ) vanilla_without_hook "${process_name}" ;;
+			[Qq]* ) break ;;
+			* ) printf "Choose [Y/N]\n"
+		esac
+	done
+}
+
+restart_server() {
+	# Restart frida server on Android device (to prevent frida spawn errors)
+
+	printf "%s\n" "${delimiter}"
+	adb shell su -c 'killall frida-server'
+	printf "Stopped current Frida server process\n"
+	adb shell "su -c 'nohup /data/local/tmp/frida-server >/dev/null 2>&1 &'"
+	printf "Started a new frida-server instance. Restart successful\n"
+	printf "%s\n" "${delimiter}"
+}
+
 attach_process() {
 	# Attach process to objection
-	pid="${1}"
-	uv run objection -g "${pid}" explore
+	local pid="${1}"
+	local process_name="${2}"
+
+	while true
+	do
+		printf "Choose Frida toolkit version:\n\t1) Vanilla\n\t2) Objection\n\t3) Exit Script"
+		read -p " " attach_choice
+		case "${attach_choice}" in
+			1* ) attach_vanilla "${process_name}" ;;
+			2* ) uv run objection -g "${pid}" explore ;;
+			3* ) restart_server && printf "Aborting script...\n" && exit 1 ;;
+			* ) printf "Choose [1/2/3]\n"
+		esac
+	done
 }
 
 #  ---------------
@@ -93,11 +154,11 @@ else
 	printf "Found process %s with pid %d\n" "${process_name}" "${pid}"
 	while true
 	do
-		read -p "Do you want to attach the process to frida objection? [Y/N] " choice
+		read -p "Do you want to attach the process to Frida? [Y/N] " choice
 		case "${choice}" in
-			[Yy]* ) attach_process "${pid}" break ;;
-			[Nn]* ) exit 1 ;;
-			* ) printf "Select Y/N\n"
+			[Yy]* ) attach_process "${pid}" "${process_name}" ;;
+			[Nn]* ) restart_server && exit 1 ;;
+			* ) printf "Choose [Y/N]\n"
 		esac
 	done
 fi
