@@ -1,0 +1,187 @@
+#!/bin/sh
+
+# Download and install frida-server onto the Android device (/data/local/tmp/ directory)
+# Usage: install_frida <frida-server-url>
+
+delimiter="================================================================"
+uploaded_binary_name="frida-server"
+
+#  -----------
+# | Functions |
+#  -----------
+
+dependency_checks() {
+	if ! which adb 2>/dev/null 1>&2
+	then
+		printf "%s\n" "${delimiter}"
+		printf "android-tools not installed.\n"
+		printf "%s\n" "${delimiter}"
+		exit 1
+	elif ! which wget 2>/dev/null 1>&2
+	then
+		printf "%s\n" "${delimiter}"
+		printf "wget not installed\n"
+		printf "%s\n" "${delimiter}"
+		exit 1
+	else
+		printf "%s\n" "${delimiter}"
+		printf "All dependencies installed\n"
+		printf "%s\n" "${delimiter}"
+	fi
+}
+
+url_checks() {
+	# Regex source - https://stackoverflow.com/a/55267709
+	# Posted by Patrick Steil
+	# Retrieved 2026-07-16
+	# License - CC BY-SA 4.0
+
+	local regex='^(https?|ftp|file)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]\.[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]$' # Regex to match a valid URL
+	local url="${1}" # Given URL for frida-server
+
+	if ! [[ $url =~ $regex ]]
+	then
+		printf "%s\n" "${delimiter}"
+		printf "%s is not a valid URL\n" "${url}"
+		printf "%s\n" "${delimiter}"
+		exit 1
+	elif [[ $(echo "${url}" | grep -i frida-server) == "" ]]
+	then
+		printf "%s\n" "${delimiter}"
+		printf "%s is not a valid frida-server URL\n" "${url}"
+		printf "%s\n" "${delimiter}"
+		exit 1
+	elif [[ $(echo "${url}" | grep -i android-arm64) == "" ]]
+	then
+		printf "%s\n" "${delimiter}"
+		printf "%s is not a valid frida-server URL for Android arm64 architecture\n" "${url}"
+		printf "%s\n" "${delimiter}"
+		exit 1
+	fi
+}
+
+setup_frida() {
+	local url="${1}"
+	local archive_name=$(echo "${url}" | rev | cut -d "/" -f 1 | rev)
+	local downloaded_binary_name=$(echo "${archive_name}" | rev | cut -d "." -f 2- | rev)
+	local cpu_architecture=$(adb shell getprop ro.product.cpu.abi)
+
+	if [[ "${cpu_architecture}" == "arm64-v8a" ]]
+	then
+		printf "%s\n" "${delimiter}"
+		printf "Downloading %s from %s\n" "${archive_name}" "${url}"
+		wget -q "${url}"
+		printf "Downloaded %s from %s\n" "${archive_name}" "${url}"
+		printf "%s\n" "${delimiter}"
+
+		printf "%s\n" "${delimiter}"
+		unxz "${archive_name}"
+		printf "Unzipped %s\n" "${archive_name}"
+		printf "%s\n" "${delimiter}"
+
+		printf "%s\n" "${delimiter}"
+		mv "${downloaded_binary_name}" "${uploaded_binary_name}"
+		printf "Renamed %s to %s\n" "${downloaded_binary_name}" "${uploaded_binary_name}"
+		printf "%s\n" "${delimiter}"
+
+		printf "%s\n" "${delimiter}"
+		chmod +x "${uploaded_binary_name}"
+		printf "Make %s executable\n" "${uploaded_binary_name}"
+		printf "%s\n" "${delimiter}"
+
+		printf "%s\n" "${delimiter}"
+		adb push -q "${uploaded_binary_name}" /data/local/tmp/
+		printf "Push %s to Android device\n" "${uploaded_binary_name}"
+		printf "%s\n" "${delimiter}"
+
+		printf "%s\n" "${delimiter}"
+		adb shell "chmod 755 /data/local/tmp/"${uploaded_binary_name}""
+		printf "Update %s permissions on Android device\n" "${uploaded_binary_name}"
+		printf "%s\n" "${delimiter}"
+
+		printf "%s\n" "${delimiter}"
+		printf "Setup of %s complete\n" "${uploaded_binary_name}"
+		printf "%s\n" "${delimiter}"
+	else
+		printf "%s\n" "${delimiter}"
+		printf "Architecture mismatch - %s given, arm64-v8a needed\n" "${cpu_architecture}"
+		printf "%s\n" "${delimiter}"
+	fi
+}
+
+get_pid() {
+	# Get process identifier of frida-server process
+	local c=2
+	local pid=$(adb shell ps -A | grep frida | cut -d " " -f ${c})
+
+	while [[ "${pid}" == "" ]]
+	do
+		pid=$(adb shell ps -A | grep frida | cut -d " " -f ${c}) && ((c++))
+	done
+
+	echo "${pid}"
+}
+
+start_frida() {
+	# Start frida-server and background the process
+	adb shell "su -c 'nohup /data/local/tmp/frida-server >/dev/null 2>&1 &'"
+
+	# Check if frida-server process is active
+	local process=$(adb shell "ps -A | grep frida")
+	if [[ "${process}" == "" ]]
+	then
+		printf "%s\n" "${delimiter}"
+		printf "Frida-server process is not active\n"
+		printf "%s\n" "${delimiter}"
+	else
+		local pid=$(get_pid)
+		printf "%s\n" "${delimiter}"
+		printf "Frida-server process is active with PID: %d\n" "${pid}"
+		printf "%s\n" "${delimiter}"
+	fi
+}
+
+cleanup() {
+	# Remove frida-server binary from host after successfull install
+	rm "${uploaded_binary_name}"
+
+	printf "%s\n" "${delimiter}"
+	printf "Residual %s binary deleted from host machine\n" "${uploaded_binary_name}"
+	printf "%s\n" "${delimiter}"
+}
+
+#  ---------------
+# | Prerequisites |
+#  ---------------
+
+if [ "${#}" -ne 1 ] # Exactly 1 command line argument should be provided as an input
+then
+	printf "%s\n" "${delimiter}"
+	printf "1 argument needed, %d given. Usage: install_frida <frida-server-url>\n" "${#}"
+	printf "%s\n" "${delimiter}"
+	exit 1
+else
+	url="${1}"
+	dependency_checks
+	url_checks "${url}"
+fi
+
+#  -----------
+# | Main Flow |
+#  -----------
+
+# Install frida-server on Android device
+frida_check=$(adb shell "ls /data/local/tmp/frida-server 2>/dev/null" || echo "${?}")
+
+if [[ "${frida_check}" == 1 ]]
+then
+	setup_frida "${url}" && start_frida
+else
+	printf "%s\n" "${delimiter}"
+	printf "Frida-server already installed. Starting...\n"
+	printf "%s\n" "${delimiter}"
+
+	start_frida
+fi
+
+cleanup
