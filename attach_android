@@ -136,8 +136,8 @@ attach_process() {
 		printf "Choose Frida toolkit version:\n\t1) Vanilla\n\t2) Objection\n\t3) Exit Script"
 		read -p " " attach_choice
 		case "${attach_choice}" in
-			1* ) attach_vanilla "${process_name}" ;;
-			2* ) uv run objection -g "${pid}" explore ;;
+			1* ) restart_server && attach_vanilla "${process_name}" ;;
+			2* ) restart_server && uv run objection -g "${pid}" explore ;;
 			3* ) restart_server && printf "Aborting script...\n" && exit 1 ;;
 			* ) printf "Choose [1/2/3]\n"
 		esac
@@ -177,7 +177,7 @@ else
 	do
 		read -p "Do you want to attach the process to Frida? [Y/N] " choice
 		case "${choice}" in
-			[Yy]* ) attach_process "${pid}" "${process_name}" ;;
+			[Yy]* ) restart_server && attach_process "${pid}" "${process_name}" ;;
 			[Nn]* ) restart_server && exit 1 ;;
 			* ) printf "Choose [Y/N]\n"
 		esac
