@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Attach Frida onto Android application process
-# Usage: attach <process-name>
+# Usage: attach_android <process-name>
 
 delimiter="================================================================"
 
@@ -150,7 +150,7 @@ attach_process() {
 
 if [[ "${#}" -ne 1 ]] # ${#} - CMD argument count
 then
-	printf "1 argument needed, %d given. Usage: attach <process-name>\n" "${#}"
+	printf "1 argument needed, %d given. Usage: attach_android <process-name>\n" "${#}"
 	exit 1
 else
 	name="${1}"
