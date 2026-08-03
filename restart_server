@@ -1,0 +1,63 @@
+#!/bin/sh
+
+# Restart frida-server on Android device
+# Usage: restart_server
+
+delimiter="================================================================"
+
+#  -----------
+# | Functions |
+#  -----------
+
+dependency_checks() {
+	# Check if adb is installed
+	if ! which adb 2>/dev/null 1>&2
+	then
+		printf "%s\n" "${delimiter}"
+		printf "android-tools not installed.\n"
+		printf "%s\n" "${delimiter}"
+		exit 1
+	fi
+}
+
+device_checks() {
+	devices=$(adb devices | tail -2 | head -1)
+	if [[ "${devices}" == "List of devices attached" ]]
+	then
+		printf "%s\n" "${delimiter}"
+		printf "No device connected\n"
+		printf "%s\n" "${delimiter}"
+		exit 1
+	fi
+}
+
+get_pid() {
+	# Get process identifier of frida-server process
+	local c=2
+	local pid=$(adb shell ps -A | grep frida | cut -d " " -f ${c})
+
+	while [[ "${pid}" == "" ]]
+	do
+		pid=$(adb shell ps -A | grep frida | cut -d " " -f ${c}) && ((c++))
+	done
+
+	echo "${pid}"
+}
+
+restart_server() {
+	# Restart frida server on Android device (to prevent frida spawn errors)
+	printf "%s\n" "${delimiter}"
+	adb shell su -c 'killall frida-server'
+	printf "Stopped current Frida server process\n"
+	adb shell "su -c 'nohup /data/local/tmp/frida-server >/dev/null 2>&1 &'"
+    local pid=$(get_pid)
+	printf "Started a new frida-server instance with a PID: %d\n" "${pid}"
+    printf "Restart successful\n"
+	printf "%s\n" "${delimiter}"
+}
+
+#  -----------
+# | Main Flow |
+#  -----------
+
+dependency_checks && device_checks && restart_server
