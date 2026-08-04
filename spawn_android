@@ -115,8 +115,17 @@ get_pid() {
 	echo "${pid}"
 }
 
+stop_process() {
+	# Stop a given process
+	local name="${1}"
+
+	adb shell su -c "killall ${name}"
+}
+
 restart_server() {
-	# Restart frida server on Android device (to prevent frida spawn errors)
+	# Restart frida server on Android device (to prevent process respawn errors) and stop spawned process
+	local full_name="${1}"
+
 	if [[ $(ps -ef | grep attach_android | wc -l) -gt 1 ]]
 	then
 		printf "%s\n" "${delimiter}"
@@ -124,12 +133,20 @@ restart_server() {
 		printf "%s\n" "${delimiter}"
 	else
 		printf "%s\n" "${delimiter}"
-		adb shell su -c 'killall frida-server'
+
+		if [[ $(adb shell ps -A | grep ${full_name} | wc -l) -eq 1 ]]
+		then
+			stop_process "${full_name}"
+			printf "Stopped spawned %s process\n" "${full_name}"
+		fi
+
+		stop_process "frida-server"
 		printf "Stopped current Frida server process\n"
+		
 		adb shell "su -c 'nohup /data/local/tmp/frida-server >/dev/null 2>&1 &'"
 		pid=$(get_pid)
 		printf "Started a new frida-server instance with a PID: %d\n" "${pid}"
-		printf "Restart successful\n"
+		printf "Restart of frida-server successful\n"
 		printf "%s\n" "${delimiter}"
 	fi
 }
@@ -158,9 +175,9 @@ do
 	printf "Spawning process:\n\t%s\n" "${full_name}"
     read -p "Attach a hook to the spawned process (press Q to break)? [Y/N] " hook
     case "${hook}" in
-        [Yy]* ) restart_server && spawn_with_hook "${full_name}" ;;
-        [Nn]* ) restart_server && spawn_without_hook "${full_name}" ;;
-        [Qq]* ) restart_server && exit 1 ;;
+        [Yy]* ) restart_server "${full_name}" && spawn_with_hook "${full_name}" ;;
+        [Nn]* ) restart_server "${full_name}" && spawn_without_hook "${full_name}" ;;
+        [Qq]* ) restart_server "${full_name}" && exit 1 ;;
         * ) printf "Choose [Y/N]\n"
     esac
 done
