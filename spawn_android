@@ -79,7 +79,7 @@ spawn_with_hook() {
 	read -p "Please enter path to the hook JS file: " hook
 
 	printf "%s\n" "${delimiter}"
-	printf "Spawning Frida on process %d with hook %s\n" "${process_name}" "${hook}"
+	printf "Spawning Frida on process %s with hook %s\n" "${process_name}" "${hook}"
 	printf "%s\n" "${delimiter}"
 
 	uv run frida -U -f "${process_name}" -l "${hook}"
@@ -92,7 +92,7 @@ spawn_without_hook() {
 	printf "%s\n" "${delimiter}"
 	printf "Spawning Frida on process %s without additional hooks\n" "${process_name}"
 	printf "%s\n" "${delimiter}"
-	
+
 	uv run frida -U -f "${process_name}"
 }
 
