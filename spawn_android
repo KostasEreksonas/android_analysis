@@ -34,7 +34,13 @@ argument_checks() {
 dependency_checks() {
 	# Check if dependencies are installed
 
-	if ! which uv 2>/dev/null 1>&2
+	if ! which tee 2>/dev/null 1>&2
+	then
+		printf "%s\n" "${delimiter}"
+		printf "tee not installed\n"
+		printf "%s\n" "${delimiter}"
+		exit 1
+	elif ! which uv 2>/dev/null 1>&2
 	then
 		printf "%s\n" "${delimiter}"
 		printf "uv not installed\n"
@@ -82,7 +88,7 @@ spawn_with_hook() {
 	printf "Spawning Frida on process %s with hook %s\n" "${process_name}" "${hook}"
 	printf "%s\n" "${delimiter}"
 
-	uv run frida -U -f "${process_name}" -l "${hook}"
+	uv run frida -U -f "${process_name}" -l "${hook}" | tee -a frida.log
 }
 
 spawn_without_hook() {
@@ -93,11 +99,11 @@ spawn_without_hook() {
 	printf "Spawning Frida on process %s without additional hooks\n" "${process_name}"
 	printf "%s\n" "${delimiter}"
 
-	uv run frida -U -f "${process_name}"
+	uv run frida -U -f "${process_name}" | tee -a frida.log
 }
 
 get_pid() {
-	# Get process identifier of frida-server process
+	# Get process identifier (PID) of frida-server
 	local c=2
 	local pid=$(adb shell ps -A | grep frida | cut -d " " -f ${c})
 

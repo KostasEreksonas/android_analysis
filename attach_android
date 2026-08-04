@@ -12,7 +12,13 @@ delimiter="================================================================"
 dependency_checks() {
 	# Check if dependencies are installed
 
-	if ! which uv 2>/dev/null 1>&2
+	if ! which tee 2>/dev/null 1>&2
+	then
+		printf "%s\n" "${delimiter}"
+		printf "tee not installed\n"
+		printf "%s\n" "${delimiter}"
+		exit 1
+	elif ! which uv 2>/dev/null 1>&2
 	then
 		printf "%s\n" "${delimiter}"
 		printf "uv not installed\n"
@@ -66,7 +72,7 @@ vanilla_with_hook() {
 	printf "Attaching Frida on process %d with hook %s\n" "${process_name}" "${hook}"
 	printf "%s\n" "${delimiter}"
 
-	uv run frida -U "${process_name}" -l "${hook}"
+	uv run frida -U "${process_name}" -l "${hook}" | tee -a frida.log
 }
 
 vanilla_without_hook() {
@@ -77,7 +83,7 @@ vanilla_without_hook() {
 	printf "Attaching Frida on process %s without additional hooks\n" "${process_name}"
 	printf "%s\n" "${delimiter}"
 	
-	uv run frida -U "${process_name}"
+	uv run frida -U "${process_name}" | tee -a frida.log
 }
 
 attach_vanilla() {
@@ -137,7 +143,7 @@ attach_process() {
 		read -p " " attach_choice
 		case "${attach_choice}" in
 			1* ) restart_server && attach_vanilla "${process_name}" ;;
-			2* ) restart_server && uv run objection -g "${pid}" explore ;;
+			2* ) restart_server && uv run objection -g "${pid}" explore | tee -a frida.log ;;
 			3* ) restart_server && printf "Aborting script...\n" && exit 1 ;;
 			* ) printf "Choose [1/2/3]\n"
 		esac
