@@ -119,7 +119,7 @@ stop_process() {
 	# Stop a given process
 	local name="${1}"
 
-	adb shell su -c "killall ${name}"
+	adb shell am force-stop ${name}
 }
 
 restart_server() {
