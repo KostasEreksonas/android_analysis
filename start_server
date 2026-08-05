@@ -1,0 +1,75 @@
+#!/bin/sh
+
+# Start frida-server on Android device
+# Usage: start_frida
+
+delimiter="================================================================"
+
+#  -----------
+# | Functions |
+#  -----------
+
+dependency_checks() {
+	if ! which adb 2>/dev/null 1>&2
+	then
+		printf "%s\n" "${delimiter}"
+		printf "android-tools not installed.\n"
+		printf "%s\n" "${delimiter}"
+		exit 1
+	else
+		printf "%s\n" "${delimiter}"
+		printf "All dependencies installed\n"
+		printf "%s\n" "${delimiter}"
+	fi
+}
+
+get_pid() {
+	# Get process identifier of frida-server process
+	local c=2
+	local pid=$(adb shell ps -A | grep frida | cut -d " " -f ${c})
+
+	while [[ "${pid}" == "" ]]
+	do
+		pid=$(adb shell ps -A | grep frida | cut -d " " -f ${c}) && ((c++))
+	done
+
+	echo "${pid}"
+}
+
+start_frida() {
+	# Start frida-server and background the process
+	adb shell "su -c 'nohup /data/local/tmp/frida-server >/dev/null 2>&1 &'"
+
+	# Check if frida-server process is active
+	local process=$(adb shell "ps -A | grep frida")
+	if [[ "${process}" == "" ]]
+	then
+		printf "%s\n" "${delimiter}"
+		printf "Frida-server process is not active\n"
+		printf "%s\n" "${delimiter}"
+	else
+		local pid=$(get_pid)
+		printf "%s\n" "${delimiter}"
+		printf "Frida-server process is active with PID: %d\n" "${pid}"
+		printf "%s\n" "${delimiter}"
+	fi
+}
+
+#  ---------------
+# | Prerequisites |
+#  ---------------
+
+dependency_checks
+
+#  -----------
+# | Main Flow |
+#  -----------
+
+if [[ $(adb shell su -c "ps -A | grep frida-server" | wc -l) -gt 0 ]]
+then
+	printf "%s\n" "${delimiter}"
+	printf "Frida-server is already active\n"
+	printf "%s\n" "${delimiter}"
+else
+	start_frida
+fi
