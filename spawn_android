@@ -133,10 +133,18 @@ restart_server() {
 			printf "Stopped spawned process %s\n" "${full_name}"
 		fi
 
-		adb shell su -c 'pkill frida-server'
-		if [[ $(adb shell ps -A | grep frida-server | wc -l) -eq 0 ]]
+		stop_process=$(adb shell su -c 'pkill frida-server; echo $?')
+		
+		if [[ "${stop_process}" -eq 0 ]]
 		then
 			printf "Stopped frida-server process successfully\n"
+		else
+			if [[ $(adb shell su -c "ps -A | grep frida-server | wc -l") -eq 0 ]]
+			then
+				printf "frida-server process is not active\n"
+			else
+				printf "frida-server was not stopped - undefined reason\n"
+			fi
 		fi
 
 		adb shell "su -c 'nohup /data/local/tmp/frida-server >/dev/null 2>&1 &'"
