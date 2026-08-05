@@ -131,23 +131,29 @@ start_frida() {
 	if [[ "${process}" == "" ]]
 	then
 		printf "%s\n" "${delimiter}"
-		printf "Frida-server process is not active\n"
+		printf "%s process is not active\n" "${uploaded_binary_name}"
 		printf "%s\n" "${delimiter}"
 	else
 		local pid=$(get_pid)
 		printf "%s\n" "${delimiter}"
-		printf "Frida-server process is active with PID: %d\n" "${pid}"
+		printf "%s process is active with PID: %d\n" "${uploaded_binary_name}" "${pid}"
 		printf "%s\n" "${delimiter}"
 	fi
 }
 
 cleanup() {
 	# Remove frida-server binary from host after successfull install
-	rm "${uploaded_binary_name}"
-
-	printf "%s\n" "${delimiter}"
-	printf "Residual %s binary deleted from host machine\n" "${uploaded_binary_name}"
-	printf "%s\n" "${delimiter}"
+	if [[ $(find . -maxdepth 1 -type f -name "${uploaded_binary_name}" | wc -l) -eq 1 ]]
+	then
+		rm "${uploaded_binary_name}"
+		printf "%s\n" "${delimiter}"
+		printf "Residual binary %s deleted from host machine\n" "${uploaded_binary_name}"
+		printf "%s\n" "${delimiter}"
+	else
+		printf "%s\n" "${delimiter}"
+		printf "Binary %s does not exist on host machine\n" "${uploaded_binary_name}"
+		printf "%s\n" "${delimiter}"
+	fi
 }
 
 #  ---------------
@@ -178,7 +184,7 @@ then
 	setup_frida "${url}" && start_frida
 else
 	printf "%s\n" "${delimiter}"
-	printf "Frida-server already installed. Starting...\n"
+	printf "%s already installed. Starting...\n" "${uploaded_binary_name}"
 	printf "%s\n" "${delimiter}"
 
 	start_frida
