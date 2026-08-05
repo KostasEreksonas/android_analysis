@@ -1,0 +1,20 @@
+[project]
+name = "android-analysis"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "KostasEreksonas", email = "k.ereksonas@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "frida-tools>=14.10.4",
+    "objection>=1.12.5",
+]
+
+[project.scripts]
+android-analysis = "android_analysis:main"
+
+[build-system]
+requires = ["uv_build>=0.12.1,<0.13.0"]
+build-backend = "uv_build"
