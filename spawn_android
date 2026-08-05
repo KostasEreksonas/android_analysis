@@ -85,7 +85,7 @@ spawn_with_hook() {
 	read -p "Please enter path to the hook JS file: " hook
 
 	printf "%s\n" "${delimiter}"
-	printf "Spawning Frida on process %s with hook %s\n" "${process_name}" "${hook}"
+	printf "Spawning process %s with hook %s\n" "${process_name}" "${hook}"
 	printf "%s\n" "${delimiter}"
 
 	uv run frida -U -f "${process_name}" -l "${hook}" | tee -a frida.log
@@ -96,7 +96,7 @@ spawn_without_hook() {
 	local process_name="${1}"
 
 	printf "%s\n" "${delimiter}"
-	printf "Spawning Frida on process %s without additional hooks\n" "${process_name}"
+	printf "Spawning process %s without additional hooks\n" "${process_name}"
 	printf "%s\n" "${delimiter}"
 
 	uv run frida -U -f "${process_name}" | tee -a frida.log
@@ -115,13 +115,6 @@ get_pid() {
 	echo "${pid}"
 }
 
-stop_process() {
-	# Stop a given process
-	local name="${1}"
-
-	adb shell am force-stop ${name}
-}
-
 restart_server() {
 	# Restart frida server on Android device (to prevent process respawn errors) and stop spawned process
 	local full_name="${1}"
@@ -136,19 +129,40 @@ restart_server() {
 
 		if [[ $(adb shell ps -A | grep ${full_name} | wc -l) -eq 1 ]]
 		then
-			stop_process "${full_name}"
-			printf "Stopped spawned %s process\n" "${full_name}"
+			adb shell am force-stop "${full_name}"
+			printf "Stopped spawned process %s\n" "${full_name}"
 		fi
 
-		stop_process "frida-server"
-		printf "Stopped current Frida server process\n"
-		
+		adb shell su -c 'pkill frida-server'
+		if [[ $(adb shell ps -A | grep frida-server | wc -l) -eq 0 ]]
+		then
+			printf "Stopped frida-server process successfully\n"
+		fi
+
 		adb shell "su -c 'nohup /data/local/tmp/frida-server >/dev/null 2>&1 &'"
 		pid=$(get_pid)
 		printf "Started a new frida-server instance with a PID: %d\n" "${pid}"
 		printf "Restart of frida-server successful\n"
 		printf "%s\n" "${delimiter}"
 	fi
+}
+
+activity_log() {
+	# Save activity logs of Android device
+	local log_name="${1}"
+	local app_name="${2}"
+	local app_logs="app_activity.log"
+	local frida_logs="frida_activity.log"
+
+	adb logcat -d > "${log_name}"
+	grep "${app_name}" "${log_name}" > "${app_logs}"
+	grep "frida-server" "${log_name}" > "${frida_logs}"
+
+	printf "%s\n" "${delimiter}"
+	printf "General Android device logs saved at: %s\n" "${log_name}"
+	printf "%s logs saved at: %s\n" "${app_name}" "${app_logs}"
+	printf "frida-server logs saved at: %s\n" "${frida_logs}"
+	printf "%s\n" "${delimiter}"
 }
 
 #  ---------------
@@ -175,8 +189,8 @@ do
 	printf "Spawning process:\n\t%s\n" "${full_name}"
     read -p "Attach a hook to the spawned process (press Q to break)? [Y/N] " hook
     case "${hook}" in
-        [Yy]* ) restart_server "${full_name}" && spawn_with_hook "${full_name}" ;;
-        [Nn]* ) restart_server "${full_name}" && spawn_without_hook "${full_name}" ;;
+        [Yy]* ) restart_server "${full_name}" && spawn_with_hook "${full_name}" && activity_log "activity.log" "${full_name}" ;;
+        [Nn]* ) restart_server "${full_name}" && spawn_without_hook "${full_name}" && activity_log "activity.log" "${full_name}" ;;
         [Qq]* ) restart_server "${full_name}" && exit 1 ;;
         * ) printf "Choose [Y/N]\n"
     esac
