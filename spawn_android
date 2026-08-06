@@ -18,14 +18,14 @@ argument_checks() {
 	if [[ ${package_list} == "" ]]
 	then
 		printf "%s\n" "${delimiter}"
-		printf "Package %s does not exist on this Android device\n" "${name}"
+		printf "[+] Package %s does not exist on this Android device\n" "${name}"
 		printf "%s\n" "${delimiter}"
 		exit 1
     elif [[ "${package_count}" -ne 1 ]]
     then
 		printf "%s\n" "${delimiter}"
-        printf "%d packages found. Please narrow search to a single package\n" "${package_count}"
-        printf "Found packages:\n%s\n" "${package_list}"
+        printf "[+] %d packages found. Please narrow search to a single package\n" "${package_count}"
+        printf "[+] Found packages:\n%s\n" "${package_list}"
 		printf "%s\n" "${delimiter}"
         exit 1
 	fi
@@ -37,31 +37,31 @@ dependency_checks() {
 	if ! which tee 2>/dev/null 1>&2
 	then
 		printf "%s\n" "${delimiter}"
-		printf "tee not installed\n"
+		printf "[+] tee not installed\n"
 		printf "%s\n" "${delimiter}"
 		exit 1
 	elif ! which uv 2>/dev/null 1>&2
 	then
 		printf "%s\n" "${delimiter}"
-		printf "uv not installed\n"
+		printf "[+] uv not installed\n"
 		printf "%s\n" "${delimiter}"
 		exit 1
 	elif ! which adb 2>/dev/null 1>&2
 	then
 		printf "%s\n" "${delimiter}"
-		printf "android-tools not installed.\n"
+		printf "[+] android-tools not installed.\n"
 		printf "%s\n" "${delimiter}"
 		exit 1
 	elif [[ $(find . -maxdepth 1 -type f -name uv.lock) == "" ]]
 	then
 		printf "%s\n" "${delimiter}"
-		printf "No uv.lock present for this project. Please initialize the project using uv init\n";
+		printf "[+] No uv.lock present for this project. Please initialize the project using uv init\n";
 		printf "%s\n" "${delimiter}"
 		exit 1
 	elif [[ $(uv tool list | grep frida-tools) == "" ]]
 	then
 		printf "%s\n" "${delimiter}"
-		printf "frida-tools not installed. Install it with uv tool install frida-tools\n"
+		printf "[+] frida-tools not installed. Install it with uv tool install frida-tools\n"
 		printf "%s\n" "${delimiter}"
 		exit 1
 	fi
@@ -72,7 +72,7 @@ device_checks() {
 	if [[ "${devices}" == "List of devices attached" ]]
 	then
 		printf "%s\n" "${delimiter}"
-		printf "No device connected\n"
+		printf "[+] No device connected\n"
 		printf "%s\n" "${delimiter}"
 		exit 1
 	fi
@@ -82,10 +82,10 @@ spawn_with_hook() {
 	# Running vanilla Frida with additional hooks
 	local process_name="${1}"
 
-	read -p "Please enter path to the hook JS file: " hook
+	read -p "[+] Please enter path to the hook JS file: " hook
 
 	printf "%s\n" "${delimiter}"
-	printf "Spawning process %s with hook %s\n" "${process_name}" "${hook}"
+	printf "[+] Spawning process %s with hook %s\n" "${process_name}" "${hook}"
 	printf "%s\n" "${delimiter}"
 
 	uv run frida -U -f "${process_name}" -l "${hook}" | tee -a frida.log
@@ -96,7 +96,7 @@ spawn_without_hook() {
 	local process_name="${1}"
 
 	printf "%s\n" "${delimiter}"
-	printf "Spawning process %s without additional hooks\n" "${process_name}"
+	printf "[+] Spawning process %s without additional hooks\n" "${process_name}"
 	printf "%s\n" "${delimiter}"
 
 	uv run frida -U -f "${process_name}" | tee -a frida.log
@@ -119,38 +119,41 @@ restart_server() {
 	# Restart frida server on Android device (to prevent process respawn errors) and stop spawned process
 	local full_name="${1}"
 
+	# Print banner
+	printf "%s\n" "${delimiter}"
+	printf "[+]  ------------------------- \n"
+	printf "[+] | Restarting Frida server |\n"
+	printf "[+]  ------------------------- \n"
+
 	if [[ $(ps -ef | grep attach_android | wc -l) -gt 1 ]]
 	then
-		printf "%s\n" "${delimiter}"
-		printf "Attach-android process active, skipping frida-server restart\n"
+		printf "[+] Attach-android process active, skipping frida-server restart\n"
 		printf "%s\n" "${delimiter}"
 	else
-		printf "%s\n" "${delimiter}"
-
 		if [[ $(adb shell ps -A | grep ${full_name} | wc -l) -eq 1 ]]
 		then
 			adb shell am force-stop "${full_name}"
-			printf "Stopped spawned process %s\n" "${full_name}"
+			printf "[+] Stopped spawned process %s\n" "${full_name}"
 		fi
 
 		stop_process=$(adb shell su -c 'pkill frida-server; echo $?')
 		
 		if [[ "${stop_process}" -eq 0 ]]
 		then
-			printf "Stopped frida-server process successfully\n"
+			printf "[+] Stopped frida-server process successfully\n"
 		else
 			if [[ $(adb shell su -c "ps -A | grep frida-server | wc -l") -eq 0 ]]
 			then
-				printf "frida-server process is not active\n"
+				printf "[+] frida-server process is not active\n"
 			else
-				printf "frida-server was not stopped - undefined reason\n"
+				printf "[+] frida-server was not stopped - undefined reason\n"
 			fi
 		fi
 
 		adb shell "su -c 'nohup /data/local/tmp/frida-server >/dev/null 2>&1 &'"
 		pid=$(get_pid)
-		printf "Started a new frida-server instance with a PID: %d\n" "${pid}"
-		printf "Restart of frida-server successful\n"
+		printf "[+] Started a new frida-server instance with a PID: %d\n" "${pid}"
+		printf "[+] Restart of frida-server successful\n"
 		printf "%s\n" "${delimiter}"
 	fi
 }
@@ -167,9 +170,12 @@ activity_log() {
 	grep "frida-server" "${log_name}" > "${frida_logs}"
 
 	printf "%s\n" "${delimiter}"
-	printf "General Android device logs saved at: %s\n" "${log_name}"
-	printf "%s logs saved at: %s\n" "${app_name}" "${app_logs}"
-	printf "frida-server logs saved at: %s\n" "${frida_logs}"
+	printf "[+]  ------------- \n"
+	printf "[+] | Saving Logs |\n"
+	printf "[+]  ------------- \n"
+	printf "[+] General Android device logs saved at: %s\n" "${log_name}"
+	printf "[+] %s logs saved at: %s\n" "${app_name}" "${app_logs}"
+	printf "[+] frida-server logs saved at: %s\n" "${frida_logs}"
 	printf "%s\n" "${delimiter}"
 }
 
@@ -179,7 +185,10 @@ activity_log() {
 
 if [[ "${#}" -ne 1 ]] # ${#} - CMD argument count
 then
-	printf "1 argument needed, %d given. Usage: spawn_android <process-name>\n" "${#}"
+	printf "[+]  ---------------- \n"
+	printf "[+] | Initial checks |\n"
+	printf "[+]  ---------------- \n"
+	printf "[+] 1 argument needed, %d given. Usage: spawn_android <process-name>\n" "${#}"
 	exit 1
 else
 	name="${1}"
@@ -187,15 +196,24 @@ fi
 
 argument_checks "${name}" && dependency_checks && device_checks
 
+printf "%s\n" "${delimiter}"
+printf "[+] Initial checks passed\n"
+printf "%s\n" "${delimiter}"
+
 #  -----------
 # | Main Flow |
 #  -----------
 
 while true
 do
+	# Print banner
+	printf "[+]  -------------- \n"
+	printf "[+] | Main process |\n"
+	printf "[+]  -------------- \n"
+
 	full_name=$(adb shell pm list packages | grep -i ${name} | cut -d ":" -f 2)
-	printf "Spawning process:\n\t%s\n" "${full_name}"
-    read -p "Attach a hook to the spawned process (press Q to break)? [Y/N] " hook
+	printf "[+] Spawning process:\n[+]\t%s\n" "${full_name}"
+    read -p "[+] Attach a hook to the spawned process (press Q to break)? [Y/N] " hook
     case "${hook}" in
         [Yy]* ) restart_server "${full_name}" && spawn_with_hook "${full_name}" && activity_log "activity.log" "${full_name}" ;;
         [Nn]* ) restart_server "${full_name}" && spawn_without_hook "${full_name}" && activity_log "activity.log" "${full_name}" ;;

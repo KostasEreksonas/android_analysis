@@ -13,18 +13,18 @@ dependency_checks() {
 	if ! which openssl 2>/dev/null 1>&2
 	then
 		printf "%s\n" "${delimiter}"
-		printf "Openssl not installed.\n"
+		printf "[+] Openssl not installed.\n"
 		printf "%s\n" "${delimiter}"
 		exit 1
 	elif ! which adb 2>/dev/null 1>&2
 	then
 		printf "%s\n" "${delimiter}"
-		printf "android-tools not installed.\n"
+		printf "[+] android-tools not installed.\n"
 		printf "%s\n" "${delimiter}"
 		exit 1
 	else
 		printf "%s\n" "${delimiter}"
-		printf "All dependencies installed\n"
+		printf "[+] All dependencies installed\n"
 		printf "%s\n" "${delimiter}"
 	fi
 }
@@ -38,7 +38,7 @@ argument_checks() {
 	if ! [[ "${ext}" == "der" || "${ext}" == "pem" ]]
 	then
 		printf "%s\n" "${delimiter}"
-		printf "%s is not a valid certificate file\n" "${name}"
+		printf "[+] %s is not a valid certificate file\n" "${name}"
 		printf "%s\n" "${delimiter}"
 		exit 1
 	fi
@@ -90,7 +90,7 @@ cleanup() {
 	fi
 
 	printf "%s\n" "${delimiter}"
-	printf "Deleted residual files\n"
+	printf "[+] Deleted residual files\n"
 	printf "%s\n" "${delimiter}"
 }
 
@@ -101,22 +101,21 @@ cleanup() {
 if [ "${#}" -ne 1 ] # Exactly 1 command line argument should be provided as an input
 then
 	printf "%s\n" "${delimiter}"
-	printf "1 argument needed, %d given. Usage: inject_certificates <path-to-certificate>\n" "${#}"
+	printf "[+] 1 argument needed, %d given. Usage: inject_certificates <path-to-certificate>\n" "${#}"
 	printf "%s\n" "${delimiter}"
 	exit 1
 else
 	name="${1}"
 	ext="${1##*.}" # Get extension
 
-	argument_checks "${name}" "${ext}"
-	dependency_checks
+	argument_checks "${name}" "${ext}" && dependency_checks
 
 	# Check if Android device is connected
 	devices=$(adb devices | tail -2 | head -1)
 	if [[ "${devices}" == "List of devices attached" ]]
 	then
 		printf "%s\n" "${delimiter}"
-		printf "No device connected\n"
+		printf "[+] No device connected\n"
 		printf "%s\n" "${delimiter}"
 		exit 1
 	fi
@@ -134,7 +133,7 @@ then
 	openssl x509 -inform DER -in "${name}" -out "${out}"
 
 	printf "%s\n" "${delimiter}"
-	printf "%s certificate converted to %s\n" "${name}" "${out}"
+	printf "[+] %s certificate converted to %s\n" "${name}" "${out}"
 	printf "%s\n" "${delimiter}"
 
 	cert_hash=$(rename_pem_cert "${out}")
@@ -144,7 +143,7 @@ then
 fi
 
 printf "%s\n" "${delimiter}"
-printf "%s certificate renamed to %s\n" "${name}" "${cert_hash}"
+printf "[+] %s certificate renamed to %s\n" "${name}" "${cert_hash}"
 printf "%s\n" "${delimiter}"
 
 # Push certificate onto Android device
@@ -153,7 +152,7 @@ adb push "${cert_hash}" /sdcard/ 2>/dev/null
 if [[ "${?}" -eq 0 ]] # ${?} - exit status of last executed command. 0 - successful execution.
 then
 	printf "%s\n" "${delimiter}"
-	printf "Pushed %s onto Android device\n" "${cert_hash}"
+	printf "[+] Pushed %s onto Android device\n" "${cert_hash}"
 	printf "%s\n" "${delimiter}"
 
 	inject_certificates "${cert_hash}"
@@ -162,17 +161,17 @@ then
 	if [[ "${status_check}" == "" ]]
 	then
 		printf "%s\n" "${delimiter}"
-		printf "%s certificate injection has failed\n" "${cert_hash}"
+		printf "[+] %s certificate injection has failed\n" "${cert_hash}"
 		printf "%s\n" "${delimiter}"
 	else
 		printf "%s\n" "${delimiter}"
-		printf "%s certificate injection has been successful\n" "${cert_hash}"
+		printf "[+] %s certificate injection has been successful\n" "${cert_hash}"
 		printf "%s\n" "${delimiter}"
 	fi
 
 	cleanup "${cert_hash}"
 else
 	printf "%s\n" "${delimiter}"
-	printf "Pushing %s onto Android device failed\n" "${cert_hash}"
+	printf "[+] Pushing %s onto Android device failed\n" "${cert_hash}"
 	printf "%s\n" "${delimiter}"
 fi

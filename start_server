@@ -13,12 +13,12 @@ dependency_checks() {
 	if ! which adb 2>/dev/null 1>&2
 	then
 		printf "%s\n" "${delimiter}"
-		printf "android-tools not installed.\n"
+		printf "[+] android-tools not installed.\n"
 		printf "%s\n" "${delimiter}"
 		exit 1
 	else
 		printf "%s\n" "${delimiter}"
-		printf "All dependencies installed\n"
+		printf "[+] All dependencies installed\n"
 		printf "%s\n" "${delimiter}"
 	fi
 }
@@ -45,12 +45,12 @@ start_frida() {
 	if [[ "${process}" == "" ]]
 	then
 		printf "%s\n" "${delimiter}"
-		printf "Frida-server process is not active\n"
+		printf "[+] Frida-server process is not active\n"
 		printf "%s\n" "${delimiter}"
 	else
 		local pid=$(get_pid)
 		printf "%s\n" "${delimiter}"
-		printf "Frida-server process is active with PID: %d\n" "${pid}"
+		printf "[+] Frida-server process is active with PID: %d\n" "${pid}"
 		printf "%s\n" "${delimiter}"
 	fi
 }
@@ -68,7 +68,7 @@ dependency_checks
 if [[ $(adb shell su -c "ps -A | grep frida-server" | wc -l) -gt 0 ]]
 then
 	printf "%s\n" "${delimiter}"
-	printf "Frida-server is already active\n"
+	printf "[+] Frida-server is already active\n"
 	printf "%s\n" "${delimiter}"
 else
 	start_frida

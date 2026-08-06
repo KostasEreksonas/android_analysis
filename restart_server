@@ -14,7 +14,7 @@ dependency_checks() {
 	if ! which adb 2>/dev/null 1>&2
 	then
 		printf "%s\n" "${delimiter}"
-		printf "android-tools not installed.\n"
+		printf "[+] android-tools not installed.\n"
 		printf "%s\n" "${delimiter}"
 		exit 1
 	fi
@@ -25,7 +25,7 @@ device_checks() {
 	if [[ "${devices}" == "List of devices attached" ]]
 	then
 		printf "%s\n" "${delimiter}"
-		printf "No device connected\n"
+		printf "[+] No device connected\n"
 		printf "%s\n" "${delimiter}"
 		exit 1
 	fi
@@ -48,11 +48,11 @@ restart_server() {
 	# Restart frida server on Android device (to prevent frida spawn errors)
 	printf "%s\n" "${delimiter}"
 	adb shell su -c 'killall frida-server'
-	printf "Stopped current Frida server process\n"
+	printf "[+] Stopped current Frida server process\n"
 	adb shell "su -c 'nohup /data/local/tmp/frida-server >/dev/null 2>&1 &'"
     local pid=$(get_pid)
-	printf "Started a new frida-server instance with a PID: %d\n" "${pid}"
-    printf "Restart successful\n"
+	printf "[+] Started a new frida-server instance with a PID: %d\n" "${pid}"
+    printf "[+] Restart successful\n"
 	printf "%s\n" "${delimiter}"
 }
 

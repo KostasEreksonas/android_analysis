@@ -15,37 +15,37 @@ dependency_checks() {
 	if ! which tee 2>/dev/null 1>&2
 	then
 		printf "%s\n" "${delimiter}"
-		printf "tee not installed\n"
+		printf "[+] tee not installed\n"
 		printf "%s\n" "${delimiter}"
 		exit 1
 	elif ! which uv 2>/dev/null 1>&2
 	then
 		printf "%s\n" "${delimiter}"
-		printf "uv not installed\n"
+		printf "[+] uv not installed\n"
 		printf "%s\n" "${delimiter}"
 		exit 1
 	elif ! which adb 2>/dev/null 1>&2
 	then
 		printf "%s\n" "${delimiter}"
-		printf "android-tools not installed.\n"
+		printf "[+] android-tools not installed.\n"
 		printf "%s\n" "${delimiter}"
 		exit 1
 	elif [[ $(find . -maxdepth 1 -type f -name uv.lock) == "" ]]
 	then
 		printf "%s\n" "${delimiter}"
-		printf "No uv.lock present for this project. Please initialize the project using uv init\n";
+		printf "[+] No uv.lock present for this project. Please initialize the project using uv init\n";
 		printf "%s\n" "${delimiter}"
 		exit 1
 	elif [[ $(uv tool list | grep frida-tools) == "" ]]
 	then
 		printf "%s\n" "${delimiter}"
-		printf "frida-tools not installed. Install it with uv tool install frida-tools\n"
+		printf "[+] frida-tools not installed. Install it with uv tool install frida-tools\n"
 		printf "%s\n" "${delimiter}"
 		exit 1
 	elif [[ $(uv tool list | grep objection) == "" ]]
 	then
 		printf "%s\n" "${delimiter}"
-		printf "Frida objection not installed. Install it with uv tool install objection\n"
+		printf "[+] Frida objection not installed. Install it with uv tool install objection\n"
 		printf "%s\n" "${delimiter}"
 		exit 1
 	fi
@@ -56,7 +56,7 @@ device_checks() {
 	if [[ "${devices}" == "List of devices attached" ]]
 	then
 		printf "%s\n" "${delimiter}"
-		printf "No device connected\n"
+		printf "[+] No device connected\n"
 		printf "%s\n" "${delimiter}"
 		exit 1
 	fi
@@ -69,7 +69,7 @@ vanilla_with_hook() {
 	read -p "Please enter path to the hook JS file: " hook
 
 	printf "%s\n" "${delimiter}"
-	printf "Attaching Frida on process %d with hook %s\n" "${process_name}" "${hook}"
+	printf "[+] Attaching Frida on process %d with hook %s\n" "${process_name}" "${hook}"
 	printf "%s\n" "${delimiter}"
 
 	uv run frida -U "${process_name}" -l "${hook}" | tee -a frida.log
@@ -80,7 +80,7 @@ vanilla_without_hook() {
 	local process_name="${1}"
 
 	printf "%s\n" "${delimiter}"
-	printf "Attaching Frida on process %s without additional hooks\n" "${process_name}"
+	printf "[+] Attaching Frida on process %s without additional hooks\n" "${process_name}"
 	printf "%s\n" "${delimiter}"
 	
 	uv run frida -U "${process_name}" | tee -a frida.log
@@ -90,7 +90,7 @@ attach_vanilla() {
 	local process_name="${1}"
 	while true
 	do
-		read -p "Do you want to attach a hook to the process (press Q to break)? [Y/N] " hook
+		read -p "[+] Do you want to attach a hook to the process (press Q to break)? [Y/N] " hook
 		case "${hook}" in
 			[Yy]* ) vanilla_with_hook "${process_name}" ;;
 			[Nn]* ) vanilla_without_hook "${process_name}" ;;
@@ -118,16 +118,16 @@ restart_server() {
 	if [[ $(ps -ef | grep spawn_android | wc -l) -gt 1 ]]
 	then
 		printf "%s\n" "${delimiter}"
-		printf "spawn-android process active, skipping frida-server restart\n"
+		printf "[+] spawn-android process active, skipping frida-server restart\n"
 		printf "%s\n" "${delimiter}"
 	else
 		printf "%s\n" "${delimiter}"
 		adb shell su -c 'killall frida-server'
-		printf "Stopped current Frida server process\n"
+		printf "[+] Stopped current Frida server process\n"
 		adb shell "su -c 'nohup /data/local/tmp/frida-server >/dev/null 2>&1 &'"
 		pid=$(get_pid)
-		printf "Started a new frida-server instance with a PID: %d\n" "${pid}"
-		printf "Restart successful\n"
+		printf "[+] Started a new frida-server instance with a PID: %d\n" "${pid}"
+		printf "[+] Restart successful\n"
 		printf "%s\n" "${delimiter}"
 	fi
 }
@@ -139,7 +139,7 @@ attach_process() {
 
 	while true
 	do
-		printf "Choose Frida toolkit version:\n\t1) Vanilla\n\t2) Objection\n\t3) Exit Script"
+		printf "[+] Choose Frida toolkit version:\n\t1) Vanilla\n\t2) Objection\n\t3) Exit Script"
 		read -p " " attach_choice
 		case "${attach_choice}" in
 			1* ) restart_server && attach_vanilla "${process_name}" ;;
@@ -156,13 +156,13 @@ attach_process() {
 
 if [[ "${#}" -ne 1 ]] # ${#} - CMD argument count
 then
-	printf "1 argument needed, %d given. Usage: attach_android <process-name>\n" "${#}"
+	printf "[+] 1 argument needed, %d given. Usage: attach_android <process-name>\n" "${#}"
 	exit 1
 else
 	name="${1}"
 fi
 
-dependency_checks
+dependency_checks && device_checks
 
 #  -----------
 # | Main Flow |
@@ -173,19 +173,19 @@ process_count=$(echo "${process}" | wc -l)
 
 if [[ "${process_count}" -ne 1 ]]
 then
-	printf "%d processes found. Please narrow your search into a single process\n" "${process_count}"
+	printf "[+] %d processes found. Please narrow your search into a single process\n" "${process_count}"
 	exit 1
 else
 	pid=$(echo ${process} | cut -d " " -f 1)
 	process_name=$(echo ${process} | cut -d " " -f 2)
-	printf "Found process %s with pid %d\n" "${process_name}" "${pid}"
+	printf "[+] Found process %s with pid %d\n" "${process_name}" "${pid}"
 	while true
 	do
-		read -p "Do you want to attach the process to Frida? [Y/N] " choice
+		read -p "[+] Do you want to attach the process to Frida? [Y/N] " choice
 		case "${choice}" in
 			[Yy]* ) restart_server && attach_process "${pid}" "${process_name}" ;;
 			[Nn]* ) restart_server && exit 1 ;;
-			* ) printf "Choose [Y/N]\n"
+			* ) printf "[+] Choose [Y/N]\n"
 		esac
 	done
 fi

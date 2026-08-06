@@ -14,18 +14,18 @@ dependency_checks() {
 	if ! which adb 2>/dev/null 1>&2
 	then
 		printf "%s\n" "${delimiter}"
-		printf "android-tools not installed.\n"
+		printf "[+] android-tools not installed.\n"
 		printf "%s\n" "${delimiter}"
 		exit 1
 	elif ! which wget 2>/dev/null 1>&2
 	then
 		printf "%s\n" "${delimiter}"
-		printf "wget not installed\n"
+		printf "[+] wget not installed\n"
 		printf "%s\n" "${delimiter}"
 		exit 1
 	else
 		printf "%s\n" "${delimiter}"
-		printf "All dependencies installed\n"
+		printf "[+] All dependencies installed\n"
 		printf "%s\n" "${delimiter}"
 	fi
 }
@@ -42,19 +42,19 @@ url_checks() {
 	if ! [[ $url =~ $regex ]]
 	then
 		printf "%s\n" "${delimiter}"
-		printf "%s is not a valid URL\n" "${url}"
+		printf "[+] %s is not a valid URL\n" "${url}"
 		printf "%s\n" "${delimiter}"
 		exit 1
 	elif [[ $(echo "${url}" | grep -i frida-server) == "" ]]
 	then
 		printf "%s\n" "${delimiter}"
-		printf "%s is not a valid frida-server URL\n" "${url}"
+		printf "[+] %s is not a valid frida-server URL\n" "${url}"
 		printf "%s\n" "${delimiter}"
 		exit 1
 	elif [[ $(echo "${url}" | grep -i android-arm64) == "" ]]
 	then
 		printf "%s\n" "${delimiter}"
-		printf "%s is not a valid frida-server URL for Android arm64 architecture\n" "${url}"
+		printf "[+] %s is not a valid frida-server URL for Android arm64 architecture\n" "${url}"
 		printf "%s\n" "${delimiter}"
 		exit 1
 	fi
@@ -69,42 +69,42 @@ setup_frida() {
 	if [[ "${cpu_architecture}" == "arm64-v8a" ]]
 	then
 		printf "%s\n" "${delimiter}"
-		printf "Downloading %s from %s\n" "${archive_name}" "${url}"
+		printf "[+] Downloading %s from %s\n" "${archive_name}" "${url}"
 		wget -q "${url}"
-		printf "Downloaded %s from %s\n" "${archive_name}" "${url}"
+		printf "[+] Downloaded %s from %s\n" "${archive_name}" "${url}"
 		printf "%s\n" "${delimiter}"
 
 		printf "%s\n" "${delimiter}"
 		unxz "${archive_name}"
-		printf "Unzipped %s\n" "${archive_name}"
+		printf "[+] Unzipped %s\n" "${archive_name}"
 		printf "%s\n" "${delimiter}"
 
 		printf "%s\n" "${delimiter}"
 		mv "${downloaded_binary_name}" "${uploaded_binary_name}"
-		printf "Renamed %s to %s\n" "${downloaded_binary_name}" "${uploaded_binary_name}"
+		printf "[+] Renamed %s to %s\n" "${downloaded_binary_name}" "${uploaded_binary_name}"
 		printf "%s\n" "${delimiter}"
 
 		printf "%s\n" "${delimiter}"
 		chmod +x "${uploaded_binary_name}"
-		printf "Make %s executable\n" "${uploaded_binary_name}"
+		printf "[+] Make %s executable\n" "${uploaded_binary_name}"
 		printf "%s\n" "${delimiter}"
 
 		printf "%s\n" "${delimiter}"
+		printf "[+] Pushing %s to Android device\n" "${uploaded_binary_name}"
 		adb push -q "${uploaded_binary_name}" /data/local/tmp/
-		printf "Push %s to Android device\n" "${uploaded_binary_name}"
 		printf "%s\n" "${delimiter}"
 
 		printf "%s\n" "${delimiter}"
 		adb shell "chmod 755 /data/local/tmp/"${uploaded_binary_name}""
-		printf "Update %s permissions on Android device\n" "${uploaded_binary_name}"
+		printf "[+] Update %s permissions on Android device\n" "${uploaded_binary_name}"
 		printf "%s\n" "${delimiter}"
 
 		printf "%s\n" "${delimiter}"
-		printf "Setup of %s complete\n" "${uploaded_binary_name}"
+		printf "[+] Setup of %s complete\n" "${uploaded_binary_name}"
 		printf "%s\n" "${delimiter}"
 	else
 		printf "%s\n" "${delimiter}"
-		printf "Architecture mismatch - %s given, arm64-v8a needed\n" "${cpu_architecture}"
+		printf "[+] Architecture mismatch - %s given, arm64-v8a needed\n" "${cpu_architecture}"
 		printf "%s\n" "${delimiter}"
 	fi
 }
@@ -131,12 +131,12 @@ start_frida() {
 	if [[ "${process}" == "" ]]
 	then
 		printf "%s\n" "${delimiter}"
-		printf "%s process is not active\n" "${uploaded_binary_name}"
+		printf "[+] %s process is not active\n" "${uploaded_binary_name}"
 		printf "%s\n" "${delimiter}"
 	else
 		local pid=$(get_pid)
 		printf "%s\n" "${delimiter}"
-		printf "%s process is active with PID: %d\n" "${uploaded_binary_name}" "${pid}"
+		printf "[+] %s process is active with PID: %d\n" "${uploaded_binary_name}" "${pid}"
 		printf "%s\n" "${delimiter}"
 	fi
 }
@@ -147,11 +147,11 @@ cleanup() {
 	then
 		rm "${uploaded_binary_name}"
 		printf "%s\n" "${delimiter}"
-		printf "Residual binary %s deleted from host machine\n" "${uploaded_binary_name}"
+		printf "[+] Residual binary %s deleted from host machine\n" "${uploaded_binary_name}"
 		printf "%s\n" "${delimiter}"
 	else
 		printf "%s\n" "${delimiter}"
-		printf "Binary %s does not exist on host machine\n" "${uploaded_binary_name}"
+		printf "[+] Binary %s does not exist on host machine\n" "${uploaded_binary_name}"
 		printf "%s\n" "${delimiter}"
 	fi
 }
@@ -163,13 +163,12 @@ cleanup() {
 if [ "${#}" -ne 1 ] # Exactly 1 command line argument should be provided as an input
 then
 	printf "%s\n" "${delimiter}"
-	printf "1 argument needed, %d given. Usage: install_frida <frida-server-url>\n" "${#}"
+	printf "[+] 1 argument needed, %d given. Usage: install_frida <frida-server-url>\n" "${#}"
 	printf "%s\n" "${delimiter}"
 	exit 1
 else
 	url="${1}"
-	dependency_checks
-	url_checks "${url}"
+	dependency_checks && url_checks "${url}"
 fi
 
 #  -----------
@@ -184,7 +183,7 @@ then
 	setup_frida "${url}" && start_frida
 else
 	printf "%s\n" "${delimiter}"
-	printf "%s already installed. Starting...\n" "${uploaded_binary_name}"
+	printf "[+] %s already installed. Starting...\n" "${uploaded_binary_name}"
 	printf "%s\n" "${delimiter}"
 
 	start_frida
