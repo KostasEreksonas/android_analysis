@@ -89,4 +89,46 @@ Java.perform(function () {
     } catch (e) {
         console.log("[-] No StringsKt hook available.\n[-] Error message:\n[-] " + e.message);
     }
+
+    try {
+        const MessageDigest = Java.use('java.security.MessageDigest');
+
+        console.log("\n[+] Overloads for MessageDigest.getInstance method:")
+        MessageDigest.getInstance.overloads.forEach(function (overload) {
+            enumerateOverloads(overload, "getInstance");
+        });
+        
+        console.log("\n[+] Overloads for MessageDigest.update method:")
+        MessageDigest.update.overloads.forEach(function (overload) {
+            enumerateOverloads(overload, "update");
+        });
+        
+        console.log("\n[+] Overloads for MessageDigest.digest method:")
+        MessageDigest.digest.overloads.forEach(function (overload) {
+            enumerateOverloads(overload, "digest");
+        });
+    } catch (e) {
+        console.log("[-] No MessageDigest hook available.\n[-] Error message:\n[-] " + e.message);
+    }
+
+    try {
+        const Mac = Java.use('javax.crypto.Mac');
+
+        console.log("\n[+] Overloads for Mac.init method:")
+        Mac.init.overloads.forEach(function (overload) {
+            enumerateOverloads(overload, "init");
+        });
+
+        console.log("\n[+] Overloads for Mac.update method:")
+        Mac.update.overloads.forEach(function (overload) {
+            enumerateOverloads(overload, "update");
+        });
+        
+        console.log("\n[+] Overloads for Mac.doFinal method:")
+        Mac.doFinal.overloads.forEach(function (overload) {
+            enumerateOverloads(overload, "doFinal");
+        });
+    } catch (e) {
+        console.log("[-] No Mac hook available.\n[-] Error message:\n[-] " + e.message);
+    }
 });
