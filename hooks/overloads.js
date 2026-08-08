@@ -1,9 +1,5 @@
 'use strict';
-/*
 
-Discover existing overloads for a given method
-
-*/
 function enumerateOverloads(overload, name) {
     console.log(
         "[+]\t" + name + "(" + overload.argumentTypes.map(
@@ -17,15 +13,21 @@ function enumerateOverloads(overload, name) {
 Java.perform(function () {
     try {
         const Base64 = Java.use("android.util.Base64");
+        const methods = Base64.class.getDeclaredMethods();
+        const names = new Set();
 
-        console.log("\n[+] Overloads for Base64.decode method:");
-        Base64.decode.overloads.forEach(function (overload) {
-            enumerateOverloads(overload, "decode");
+        methods.forEach(function (method) {
+            names.add(method.getName());
         });
 
-        console.log("\n[+] Overloads for Base64.encodeToString method:");
-        Base64.encodeToString.overloads.forEach(function (overload) {
-            enumerateOverloads(overload, "encodeToString");
+        console.log("\n[+]  ------------------------------------ ");
+        console.log("[+] | Base64 methods and their overloads |");
+        console.log("[+]  ------------------------------------ ");
+        Array.from(names).sort().forEach(function (name) {
+            console.log("\n[+] Overloads for Base64." + name + " method:");
+            Base64[name].overloads.forEach(function (overload) {
+                enumerateOverloads(overload, name);
+            });
         });
     } catch (e) {
         console.log("[-] No Base64 hook available.\n[-] Error message:\n[-] " + e.message);
@@ -33,100 +35,131 @@ Java.perform(function () {
 
     try {
         const Cipher = Java.use("javax.crypto.Cipher");
+        const methods = Cipher.class.getDeclaredMethods();
+        const names = new Set();
 
-        console.log("\n[+] Overloads for Cipher.getInstance method:");
-        Cipher.getInstance.overloads.forEach(function (overload) {
-            enumerateOverloads(overload, "getInstance");
+        methods.forEach(function (method) {
+            names.add(method.getName());
         });
 
-        console.log("\n[+] Overloads for Cipher.init method:");    
-        Cipher.init.overloads.forEach(function (overload) {
-            enumerateOverloads(overload, "init");
-        });
-
-        console.log("\n[+] Overloads for Cipher.doFinal method:");    
-        Cipher.doFinal.overloads.forEach(function (overload) {
-            enumerateOverloads(overload, "doFinal");
+        console.log("\n[+]  ------------------------------------ ");
+        console.log("[+] | Cipher methods and their overloads |");
+        console.log("[+]  ------------------------------------ ");
+        Array.from(names).sort().forEach(function (name) {
+            console.log("\n[+] Overloads for Cipher." + name + " method:");
+            Cipher[name].overloads.forEach(function (overload) {
+                enumerateOverloads(overload, name);
+            });
         });
     } catch (e) {
         console.log("[-] No Cipher hook available.\n[-] Error message:\n[-] " + e.message);
     }
-    
-    try {
-        const SecretKeySpec = Java.use('javax.crypto.spec.SecretKeySpec');
 
-        console.log("\n[+] Overloads for SecretKeySpec.$init method:");    
-        SecretKeySpec.$init.overloads.forEach(function (overload) {
-            enumerateOverloads(overload, "$init");
+    try {
+        const SecretKeySpec = Java.use("javax.crypto.spec.SecretKeySpec");
+        const methods = SecretKeySpec.class.getDeclaredMethods();
+        const names = new Set();
+
+        methods.forEach(function (method) {
+            names.add(method.getName());
+        });
+
+        console.log("\n[+]  ------------------------------------------- ");
+        console.log("[+] | SecretKeySpec methods and their overloads |");
+        console.log("[+]  ------------------------------------------- ");
+        Array.from(names).sort().forEach(function (name) {
+            console.log("\n[+] Overloads for SecretKeySpec." + name + " method:");
+            SecretKeySpec[name].overloads.forEach(function (overload) {
+                enumerateOverloads(overload, name);
+            });
         });
     } catch (e) {
         console.log("[-] No SecretKeySpec hook available.\n[-] Error message:\n[-] " + e.message);
     }
 
     try {
-        const IvParameterSpec = Java.use('javax.crypto.spec.IvParameterSpec');
+        const IvParameterSpec = Java.use("javax.crypto.spec.IvParameterSpec");
+        const methods = IvParameterSpec.class.getDeclaredMethods();
+        const names = new Set();
 
-        console.log("\n[+] Overloads for IvParameterSpec.$init method:");    
-        IvParameterSpec.$init.overloads.forEach(function (overload) {
-            enumerateOverloads(overload, "$init");
+        methods.forEach(function (method) {
+            names.add(method.getName());
+        });
+
+        console.log("\n[+]  --------------------------------------------- ");
+        console.log("[+] | IvParameterSpec methods and their overloads |");
+        console.log("[+]  --------------------------------------------- ");
+        Array.from(names).sort().forEach(function (name) {
+            console.log("\n[+] Overloads for IvParameterSpec." + name + " method:");
+            IvParameterSpec[name].overloads.forEach(function (overload) {
+                enumerateOverloads(overload, name);
+            });
         });
     } catch (e) {
         console.log("[-] No IvParameterSpec hook available.\n[-] Error message:\n[-] " + e.message);
     }
 
     try {
-        const StringsKt = Java.use('kotlin.text.StringsKt');
+        const StringsKt = Java.use("kotlin.text.StringsKt");
+        const methods = StringsKt.class.getDeclaredMethods();
+        const names = new Set();
 
-        console.log("\n[+] Overloads for StringsKt.encodeToByteArray method:")
-        StringsKt.encodeToByteArray.overloads.forEach(function (overload) {
-            enumerateOverloads(overload, "encodeToByteArray");
+        methods.forEach(function (method) {
+            names.add(method.getName());
         });
-    
-        console.log("\n[+] Overloads for StringsKt.decodeToString method:")
-        StringsKt.decodeToString.overloads.forEach(function (overload) {
-            enumerateOverloads(overload, "decodeToString");
+
+        console.log("\n[+]  --------------------------------------- ");
+        console.log("[+] | StringsKt methods and their overloads |");
+        console.log("[+]  --------------------------------------- ");
+        Array.from(names).sort().forEach(function (name) {
+            console.log("\n[+] Overloads for StringsKt." + name + " method:");
+            StringsKt[name].overloads.forEach(function (overload) {
+                enumerateOverloads(overload, name);
+            });
         });
     } catch (e) {
         console.log("[-] No StringsKt hook available.\n[-] Error message:\n[-] " + e.message);
     }
 
     try {
-        const MessageDigest = Java.use('java.security.MessageDigest');
+        const MessageDigest = Java.use("java.security.MessageDigest");
+        const methods = MessageDigest.class.getDeclaredMethods();
+        const names = new Set();
 
-        console.log("\n[+] Overloads for MessageDigest.getInstance method:")
-        MessageDigest.getInstance.overloads.forEach(function (overload) {
-            enumerateOverloads(overload, "getInstance");
+        methods.forEach(function (method) {
+            names.add(method.getName());
         });
-        
-        console.log("\n[+] Overloads for MessageDigest.update method:")
-        MessageDigest.update.overloads.forEach(function (overload) {
-            enumerateOverloads(overload, "update");
-        });
-        
-        console.log("\n[+] Overloads for MessageDigest.digest method:")
-        MessageDigest.digest.overloads.forEach(function (overload) {
-            enumerateOverloads(overload, "digest");
+
+        console.log("\n[+]  ------------------------------------------- ");
+        console.log("[+] | MessageDigest methods and their overloads |");
+        console.log("[+]  ------------------------------------------- ");
+        Array.from(names).sort().forEach(function (name) {
+            console.log("\n[+] Overloads for MessageDigest." + name + " method:");
+            MessageDigest[name].overloads.forEach(function (overload) {
+                enumerateOverloads(overload, name);
+            });
         });
     } catch (e) {
         console.log("[-] No MessageDigest hook available.\n[-] Error message:\n[-] " + e.message);
     }
 
     try {
-        const Mac = Java.use('javax.crypto.Mac');
+        const Mac = Java.use("javax.crypto.Mac");
+        const methods = Mac.class.getDeclaredMethods();
+        const names = new Set();
 
-        console.log("\n[+] Overloads for Mac.init method:")
-        Mac.init.overloads.forEach(function (overload) {
-            enumerateOverloads(overload, "init");
+        methods.forEach(function (method) {
+            names.add(method.getName());
         });
 
-        console.log("\n[+] Overloads for Mac.update method:")
-        Mac.update.overloads.forEach(function (overload) {
-            enumerateOverloads(overload, "update");
-        });
-        
-        console.log("\n[+] Overloads for Mac.doFinal method:")
-        Mac.doFinal.overloads.forEach(function (overload) {
-            enumerateOverloads(overload, "doFinal");
+        console.log("\n[+]  --------------------------------- ");
+        console.log("[+] | Mac methods and their overloads |");
+        console.log("[+]  --------------------------------- ");
+        Array.from(names).sort().forEach(function (name) {
+            console.log("\n[+] Overloads for Cipher." + name + " method:");
+            Mac[name].overloads.forEach(function (overload) {
+                enumerateOverloads(overload, name);
+            });
         });
     } catch (e) {
         console.log("[-] No Mac hook available.\n[-] Error message:\n[-] " + e.message);
