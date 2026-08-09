@@ -679,7 +679,8 @@ Java.perform(function () {
 
             if (outputLength > 0) {
                 console.log("Output offset: " + outputOffset);
-                console.log("Output: " + bytesToHexRange(output, outputOffset, outputLength));
+                console.log("Output (HEX): " + bytesToHexRange(output, outputOffset, outputLength));
+                console.log("Output (ASCII): " + bytesToStringRange(output, outputOffset, outputLength));
             } else {
                 console.log("Output: <none>");
             }
