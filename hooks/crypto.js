@@ -692,4 +692,111 @@ Java.perform(function () {
     } catch (e) {
         console.log("[+] Error message: " + e.message);
     }
+    
+    //  ------------------------------
+    // | Cipher.getInstance overloads |
+    //  ------------------------------
+    try {// 1. [Cipher.getInstance(java.lang.String) -> static Cipher]
+        const instanceKey = Cipher.getInstance.overload(
+            "java.lang.String"
+        );
+
+        instanceKey.implementation = function(transformation) {
+            console.log("1. [Cipher.getInstance(java.lang.String) -> static Cipher]")
+            console.log("Requested transformation: " + transformation);
+
+            const cipher = instanceKey.call(this, transformation);
+
+            console.log("getAlgorithm(): " + cipher.getAlgorithm());
+            console.log("Runtime class: " + cipher.getClass().getName());
+            
+            try {
+                console.log("Block size: " + cipher.getBlockSize());
+            } catch (e) {
+                console.log("Error getting block size: " + e.message);
+            }
+
+            const provider = cipher.getProvider();
+            if (provider !== null) {
+                console.log("Provider name: " + provider.getName());
+                console.log("Provider version: " + provider.getVersion());
+                console.log("Provider info: " + provider.getInfo());
+                console.log("Provider class: " + provider.getClass().getName());
+            }
+
+            return cipher;
+        }
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 2. [Cipher.getInstance(java.lang.String, java.lang.String)] -> static Cipher
+        const instanceKey = Cipher.getInstance.overload(
+            "java.lang.String",
+            "java.lang.String"
+        );
+
+        instanceKey.implementation = function (transformation, provider) {
+            console.log("2. [Cipher.getInstance(java.lang.String, java.lang.String) -> static Cipher]")
+            console.log("Requested transformation: " + transformation);
+            console.log("Requested provider: " + provider);
+
+            const cipher = instanceKey.call(this, transformation, provider);
+
+            console.log("getAlgorithm(): " + cipher.getAlgorithm());
+            console.log("Runtime class: " + cipher.getClass().getName());
+            
+            try {
+                console.log("Block size: " + cipher.getBlockSize());
+            } catch (e) {
+                console.log("Error getting block size: " + e.message);
+            }
+
+            const cipherProvider = cipher.getProvider();
+            if (provider !== null) {
+                console.log("Provider name: " + cipherProvider.getName());
+                console.log("Provider version: " + cipherProvider.getVersion());
+                console.log("Provider info: " + cipherProvider.getInfo());
+                console.log("Provider class: " + cipherProvider.getClass().getName());
+            }
+
+            return cipher;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 3. [Cipher.getInstance(java.lang.String, java.security.Provider) -> static Cipher]
+        const instanceKey = Cipher.getInstance.overload(
+            "java.lang.String",
+            "java.security.Provider"
+        );
+
+        instanceKey.implementation = function (transformation, provider) {
+            console.log("3. [Cipher.getInstance(java.lang.String, java.security.Provider) -> static Cipher]")
+            console.log("Requested transformation: " + transformation);
+
+            const cipher = instanceKey.call(this, transformation, provider);
+
+            console.log("getAlgorithm(): " + cipher.getAlgorithm());
+            console.log("Runtime class: " + cipher.getClass().getName());
+            
+            try {
+                console.log("Block size: " + cipher.getBlockSize());
+            } catch (e) {
+                console.log("Error getting block size: " + e.message);
+            }
+
+            if (provider !== null) {
+                console.log("Provider name: " + provider.getName());
+                console.log("Provider version: " + provider.getVersion());
+                console.log("Provider info: " + provider.getInfo());
+                console.log("Provider class: " + provider.getClass().getName());
+            }
+
+            return cipher;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
 });
