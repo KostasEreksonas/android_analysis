@@ -662,7 +662,7 @@ Java.perform(function () {
             console.log("5. [Cipher.doFinal(byte[] input, int inputOffset, int inputLen, byte[] output) -> int]");
             console.log("Input offset: " + inputOffset);
             console.log("Input length: " + inputLen);
-            console.log("Input (HEX): " + bytesToHex(input));
+            console.log("Input (HEX): " + bytesToHexRange(input, inputOffset, inputLen));
             console.log("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLen));
         
             const outputLen = finalKey.call(this, input, inputOffset, inputLen, output);
