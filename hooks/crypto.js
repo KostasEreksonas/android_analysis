@@ -157,163 +157,23 @@ function describe_opmode(opmode) {
     }
 }
 
+//  ------------
+// | Main Logic |
+//  ------------
 Java.perform(function () {
     const Cipher = Java.use("javax.crypto.Cipher");
 
     //  -----------------------
     // | Cipher.init overloads |
     //  -----------------------
-    try { // 1. [Cipher.init(int, Key)]
-        const initKey = Cipher.init.overload(
-            "int",
-            "java.security.Key"
-        );
-
-        initKey.implementation = function (opmode, key) {
-            console.log("1. [Cipher.init(int, Key)]");
-            console.log("Algorithm: " + this.getAlgorithm());
-            describe_opmode(opmode);
-
-            logKey(key);
-
-            //traceStack();
-
-            return initKey.call(this, opmode, key);
-        };
-    } catch (e) {
-        console.log("[+] Error message: " + e.message);
-    }
-
-    try { // 2. [Cipher.init(int, Key, AlgorithmParameters)]
-        const initKey = Cipher.init.overload(
-            "int",
-            "java.security.Key",
-            "java.security.AlgorithmParameters"
-        );
-
-        initKey.implementation = function (opmode, key, params) {
-            console.log("2. [Cipher.init(int, Key, AlgorithmParameters)]");
-            console.log("Algorithm: " + this.getAlgorithm());
-            describe_opmode(opmode);
-
-            logKey(key);
-            logAlgorithmParameters(params);
-
-            //traceStack();
-
-            return initKey.call(this, opmode, key, params);
-        };
-    } catch (e) {
-        console.log("[+] Error message: " + e.message);
-    }
-
-    try { // 3. [Cipher.init(int, Key, AlgorithmParameters, SecureRandom)]
-        const initKey = Cipher.init.overload(
-            "int",
-            "java.security.Key",
-            "java.security.AlgorithmParameters",
-            "java.security.SecureRandom"
-        );
-
-        initKey.implementation = function (opmode, key, params, random) {
-            console.log("3. [Cipher.init(int, Key, AlgorithmParameters, SecureRandom)]");
-            console.log("Algorithm: " + this.getAlgorithm());
-            describe_opmode(opmode);
-
-            logKey(key);
-            logAlgorithmParameters(params);
-
-            console.log("SecureRandom: " + random);
-
-            //traceStack();
-
-            return initKey.call(this, opmode, key, params, random);
-        };
-    } catch (e) {
-        console.log("[+] Error message: " + e.message);
-    }
-
-    try { // 4. [Cipher.init(int, Key, SecureRandom)]
-        const initKey = Cipher.init.overload(
-            "int",
-            "java.security.Key",
-            "java.security.SecureRandom"
-        );
-
-        initKey.implementation = function (opmode, key, random) {
-            console.log("4. [Cipher.init(int, Key, SecureRandom)]");
-            console.log("Algorithm: " + this.getAlgorithm());
-            describe_opmode(opmode);
-
-            logKey(key);
-
-            console.log("SecureRandom: " + random);
-
-            //traceStack();
-
-            return initKey.call(this, opmode, key, random);
-        };
-    } catch (e) {
-        console.log("[+] Error message: " + e.message);
-    }
-
-    try { // 5. [Cipher.init(int, Key, AlgorithmParameterSpec)]
-        const initKey = Cipher.init.overload(
-            "int",
-            "java.security.Key",
-            "java.security.spec.AlgorithmParameterSpec"
-        );
-
-        initKey.implementation = function (opmode, key, params) {
-            console.log("5. [Cipher.init(int, Key, AlgorithmParameterSpec)]");
-            console.log("Algorithm: " + this.getAlgorithm());
-            describe_opmode(opmode);
-
-            logKey(key);
-            logAlgorithmParameterSpec(params);
-
-            //traceStack();
-
-            return initKey.call(this, opmode, key, params);
-        };
-    } catch (e) {
-        console.log("[+] Error message: " + e.message);
-    }
-
-    try { // 6. [Cipher.init(int, Key, AlgorithmParameterSpec, SecureRandom)]
-        const initKey = Cipher.init.overload(
-            "int",
-            "java.security.Key",
-            "java.security.spec.AlgorithmParameterSpec",
-            "java.security.SecureRandom"
-        );
-
-        initKey.implementation = function (opmode, key, params, random) {
-            console.log("6. [Cipher.init(int, Key, AlgorithmParameterSpec, SecureRandom)]");
-            console.log("Algorithm: " + this.getAlgorithm());
-            describe_opmode(opmode);
-
-            logKey(key);
-            logAlgorithmParameterSpec(params);
-
-            console.log("SecureRandom: " + random);
-
-            //traceStack();
-
-            return initKey.call(this, opmode, key, params, random);
-        };
-    } catch (e) {
-        console.log("[+] Error message: " + e.message);
-    }
-
-    try { // 7. [Cipher.init(int, Certificate)]
+    try { // 1. [Cipher.init(int opmode, Certificate certificate) -> void]
         const initKey = Cipher.init.overload(
             "int",
             "java.security.cert.Certificate"
         );
 
         initKey.implementation = function (opmode, certificate) {
-            console.log("7. [Cipher.init(int, Certificate)]");
+            console.log("1. [Cipher.init(int opmode, Certificate certificate) -> void]");
             console.log("Algorithm: " + this.getAlgorithm());
             describe_opmode(opmode);
 
@@ -328,7 +188,7 @@ Java.perform(function () {
         console.log("[+] Error message: " + e.message);
     }
 
-    try { // 8. [Cipher.init(int, Certificate, SecureRandom)]
+    try { // 2. [Cipher.init(int opmode, Certificate certificate, SecureRandom random) -> void]
         const initKey = Cipher.init.overload(
             "int",
             "java.security.cert.Certificate",
@@ -336,7 +196,7 @@ Java.perform(function () {
         );
 
         initKey.implementation = function (opmode, certificate, random) {
-            console.log("8. [Cipher.init(int, Certificate, SecureRandom)]");
+            console.log("2. [Cipher.init(int opmode, Certificate certificate, SecureRandom random) -> void]");
             console.log("Algorithm: " + this.getAlgorithm());
             describe_opmode(opmode);
 
@@ -352,154 +212,303 @@ Java.perform(function () {
         console.log("[+] Error message: " + e.message);
     }
 
+    try { // 3. [Cipher.init(int opmode, Key key) -> void]
+        const initKey = Cipher.init.overload(
+            "int",
+            "java.security.Key"
+        );
+
+        initKey.implementation = function (opmode, key) {
+            console.log("3. [Cipher.init(int opmode, Key key) -> void]");
+            console.log("Algorithm: " + this.getAlgorithm());
+            describe_opmode(opmode);
+
+            logKey(key);
+
+            //traceStack();
+
+            return initKey.call(this, opmode, key);
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 4. [Cipher.init(int opmode, Key key, AlgorithmParameters params) -> void]
+        const initKey = Cipher.init.overload(
+            "int",
+            "java.security.Key",
+            "java.security.AlgorithmParameters"
+        );
+
+        initKey.implementation = function (opmode, key, params) {
+            console.log("4. [Cipher.init(int opmode, Key key, AlgorithmParameters params) -> void]");
+            console.log("Algorithm: " + this.getAlgorithm());
+            describe_opmode(opmode);
+
+            logKey(key);
+            logAlgorithmParameters(params);
+
+            //traceStack();
+
+            return initKey.call(this, opmode, key, params);
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 5. [Cipher.init(int opmode, Key key, AlgorithmParameterSpec params) -> void]
+        const initKey = Cipher.init.overload(
+            "int",
+            "java.security.Key",
+            "java.security.spec.AlgorithmParameterSpec"
+        );
+
+        initKey.implementation = function (opmode, key, params) {
+            console.log("5. [Cipher.init(int opmode, Key key, AlgorithmParameterSpec params) -> void]");
+            console.log("Algorithm: " + this.getAlgorithm());
+            describe_opmode(opmode);
+
+            logKey(key);
+            logAlgorithmParameterSpec(params);
+
+            //traceStack();
+
+            return initKey.call(this, opmode, key, params);
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 6. [Cipher.init(int opmode, Key key, AlgorithmParameterSpec params, SecureRandom random) -> void]
+        const initKey = Cipher.init.overload(
+            "int",
+            "java.security.Key",
+            "java.security.spec.AlgorithmParameterSpec",
+            "java.security.SecureRandom"
+        );
+
+        initKey.implementation = function (opmode, key, params, random) {
+            console.log("6. [Cipher.init(int opmode, Key key, AlgorithmParameterSpec params, SecureRandom random) -> void]");
+            console.log("Algorithm: " + this.getAlgorithm());
+            describe_opmode(opmode);
+
+            logKey(key);
+            logAlgorithmParameterSpec(params);
+
+            console.log("SecureRandom: " + random);
+
+            //traceStack();
+
+            return initKey.call(this, opmode, key, params, random);
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 7. [Cipher.init(int opmode, Key key, AlgorithmParameters params, SecureRandom random) -> void]
+        const initKey = Cipher.init.overload(
+            "int",
+            "java.security.Key",
+            "java.security.AlgorithmParameters",
+            "java.security.SecureRandom"
+        );
+
+        initKey.implementation = function (opmode, key, params, random) {
+            console.log("7. [Cipher.init(int opmode, Key key, AlgorithmParameters params, SecureRandom random) -> void]");
+            console.log("Algorithm: " + this.getAlgorithm());
+            describe_opmode(opmode);
+
+            logKey(key);
+            logAlgorithmParameters(params);
+
+            console.log("SecureRandom: " + random);
+
+            //traceStack();
+
+            return initKey.call(this, opmode, key, params, random);
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 8. [Cipher.init(int opmode, Key key, SecureRandom random) -> void]
+        const initKey = Cipher.init.overload(
+            "int",
+            "java.security.Key",
+            "java.security.SecureRandom"
+        );
+
+        initKey.implementation = function (opmode, key, random) {
+            console.log("8. [Cipher.init(int opmode, Key key, SecureRandom random) -> void]");
+            console.log("Algorithm: " + this.getAlgorithm());
+            describe_opmode(opmode);
+
+            logKey(key);
+
+            console.log("SecureRandom: " + random);
+
+            //traceStack();
+
+            return initKey.call(this, opmode, key, random);
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
     //  -------------------------
     // | Cipher.update overloads |
     //  -------------------------
-    try { // 1. [Cipher.update(ByteBuffer, ByteBuffer)]
-        const updateKey = Cipher.update.overload(
-            "java.nio.ByteBuffer",
-            "java.nio.ByteBuffer"
-        );
-
-        updateKey.implementation = function (inputBuf, outputBuf) {
-            console.log("1. [Cipher.update(ByteBuffer, ByteBuffer)]");
-            
-            console.log("Input buffer: " + inputBuf);
-            console.log("Output buffer: " + outputBuf);
-            
-            //traceStack();
-
-            const result = updateKey.call(this, inputBuf, outputBuf);
-
-            return result;
-        };
-    } catch (e) {
-        console.log("[+] Error message: " + e.message);
-    }
-
-    try { // 2. [Cipher.update([B, int, int, [B)]
-        const updateKey = Cipher.update.overload(
-            "[B",
-            "int",
-            "int",
-            "[B"
-        );
-
-        updateKey.implementation = function (input, inputOffset, inputLength, output) {
-            console.log("2. [Cipher.update([B, int, int, [B)]");
-            console.log("Input offset: " + inputOffset);
-            console.log("Input length: " + inputLength);
-            console.log("Input (HEX): " + bytesToHexRange(input, inputOffset, inputLength));
-            console.log("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLength));
-            
-            const outputLength = updateKey.call(this, input, inputOffset, inputLength, output);
-            console.log("Bytes written: " + outputLength);
-            
-            if (outputLength > 0) {
-                console.log("Output offset: " + outputOffset);
-                console.log("Output (HEX): " + bytesToHexRange(output, 0, outputLength));
-                console.log("Output (ASCII): " + bytesToStringRange(output, 0, outputLength));
-            } else {
-                console.log("Output: <none>");
-            
-            }
-
-            //traceStack();
-
-            return outputLength;
-        };
-    } catch (e) {
-        console.log("[+] Error message: " + e.message);
-    }
-
-    try { // 3. [Cipher.update([B, int, int, [B, int)]
-        const updateKey = Cipher.update.overload(
-            "[B",
-            "int",
-            "int",
-            "[B",
-            "int"
-        );
-
-        updateKey.implementation = function (input, inputOffset, inputLength, output, outputOffset) {
-            console.log("3. [Cipher.update([B, int, int, [B, int)]");
-            console.log("Input offset: " + inputOffset);
-            console.log("Input length: " + inputLength);
-            console.log("Input (HEX): " + bytesToHex(input, inputOffset, inputLength));
-            console.log("Input (ASCII): " + bytesToString(input, inputOffset, inputLength));
-
-            const outputLength = updateKey.call(this, input, inputOffset, inputLength, output, outputOffset);
-
-            if (outputLength > 0) {
-                console.log("Bytes written: " + outputLength);
-                console.log("Output offset: " + outputOffset);
-                console.log("Output (HEX): " + bytesToHexRange(output, outputOffset, outputLength));
-                console.log("Output (ASCII): " + bytesToStringRange(output, outputOffset, outputLength));
-            } else {
-                console.log("Output: <none>");
-            }
-
-            //traceStack();
-            
-            return outputLength;
-        };
-    } catch (e) {
-        console.log("[+] Error message: " + e.message);
-    }
-
-    try { // 4. [Cipher.update([B)]
+    try { // 1. [Cipher.update(byte[] input) -> byte[]]
         const updateKey = Cipher.update.overload(
             "[B"
         );
 
         updateKey.implementation = function (input) {
-            console.log("4. [Cipher.update([B)]");
+            console.log("1. [Cipher.update(byte[] input) -> byte[]]");
             console.log("Input (HEX): " + bytesToHex(input));
             console.log("Input (ASCII): " + bytesToString(input));
             
-            const result = updateKey.call(this, input);
+            const output = updateKey.call(this, input);
 
-            if (result !== null) {
-                console.log("Output (HEX): " + bytesToHex(result));
-                console.log("Output (ASCII): " + bytesToString(result));
+            if (output !== null) {
+                console.log("Output (HEX): " + bytesToHex(output));
+                console.log("Output (ASCII): " + bytesToString(output));
             } else {
                 console.log("Output: <none>");
             }
 
             //traceStack();
 
-            return result;
+            return output;
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
     }
 
-    try { // 5. [Cipher.update([B, int, int)
+    try { // 2. [Cipher.update(byte[] input, int inputOffset, int inputLen) -> byte[]]
         const updateKey = Cipher.update.overload(
             "[B",
             "int",
             "int"
         );
 
-        updateKey.implementation = function (input, inputOffset, inputLength) {
-            console.log("5. [Cipher.update([B, int, int)]");
+        updateKey.implementation = function (input, inputOffset, inputLen) {
+            console.log("2. [Cipher.update(byte[] input, int inputOffset, int inputLen) -> byte[]]");
             console.log("Input offset: " + inputOffset);
-            console.log("Input length: " + inputLength);
-            console.log("Input (HEX): " + bytesToHexRange(input, inputOffset, inputLength));
-            console.log("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLength));
+            console.log("Input length: " + inputLen);
+            console.log("Input (HEX): " + bytesToHexRange(input, inputOffset, inputLen));
+            console.log("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLen));
             
-            const result = updateKey.call(this, input, inputOffset, inputLength);
+            const output = updateKey.call(this, input, inputOffset, inputLen);
             
-            if (outputLength !== null) {
-                console.log("Output (HEX): " + bytesToHex(result));
-                console.log("Output (ASCII): " + bytesToString(result));
+            if (output !== null) {
+                console.log("Output (HEX): " + bytesToHex(output));
+                console.log("Output (ASCII): " + bytesToString(output));
             } else {
                 console.log("Output: <none>");
             }
 
             //traceStack();
 
-            return result;
+            return output;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 3. [Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output) -> int]
+        const updateKey = Cipher.update.overload(
+            "[B",
+            "int",
+            "int",
+            "[B"
+        );
+
+        updateKey.implementation = function (input, inputOffset, inputLen, output) {
+            console.log("3. [Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output) -> int]");
+            console.log("Input offset: " + inputOffset);
+            console.log("Input length: " + inputLen);
+            console.log("Input (HEX): " + bytesToHexRange(input, inputOffset, inputLen));
+            console.log("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLen));
+            
+            const outputLen = updateKey.call(this, input, inputOffset, inputLen, output);
+            
+            if (outputLen > 0) {
+                console.log("Bytes written: " + outputLen);
+                console.log("Output (HEX): " + bytesToHexRange(output, 0, outputLen));
+                console.log("Output (ASCII): " + bytesToStringRange(output, 0, outputLen));
+            } else {
+                console.log("Output: <none>");
+            
+            }
+
+            //traceStack();
+
+            return outputLen;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 4. [Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]
+        const updateKey = Cipher.update.overload(
+            "[B",
+            "int",
+            "int",
+            "[B",
+            "int"
+        );
+
+        updateKey.implementation = function (input, inputOffset, inputLen, output, outputOffset) {
+            console.log("4. [Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]");
+            console.log("Input offset: " + inputOffset);
+            console.log("Input length: " + inputLen);
+            console.log("Input (HEX): " + bytesToHexRange(input, inputOffset, inputLen));
+            console.log("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLen));
+
+            const outputLen = updateKey.call(this, input, inputOffset, inputLen, output, outputOffset);
+
+            if (outputLen > 0) {
+                console.log("Bytes written: " + outputLen);
+                console.log("Output offset: " + outputOffset);
+                console.log("Output (HEX): " + bytesToHexRange(output, outputOffset, outputLen));
+                console.log("Output (ASCII): " + bytesToStringRange(output, outputOffset, outputLen));
+            } else {
+                console.log("Output: <none>");
+            }
+
+            //traceStack();
+            
+            return outputLen;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 5. [Cipher.update(ByteBuffer input, ByteBuffer output) -> int]
+        const updateKey = Cipher.update.overload(
+            "java.nio.ByteBuffer",
+            "java.nio.ByteBuffer"
+        );
+
+        updateKey.implementation = function (input, output) {
+            console.log("5. [Cipher.update(ByteBuffer input, ByteBuffer output) -> int]");
+            
+            console.log("Input buffer: " + input);
+            
+            //traceStack();
+
+            const outputLen = updateKey.call(this, input, output);
+
+            if (outputLen > 0) {
+                console.log("Bytes written: " + outputLen);
+                console.log("Output buffer (HEX): " + bytesToHexRange(output, 0, outputLen));
+                console.log("Output buffer (ASCII): " + bytesToStringRange(output, 0, outputLen));
+            } else {
+                console.log("Output: <none>");
+            }
+
+            return outputLen;
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -508,186 +517,196 @@ Java.perform(function () {
     //  --------------------------
     // | Cipher.doFinal overloads |
     //  --------------------------
-    try { // 1. [Cipher.doFinal(ByteBuffer, ByteBuffer)]
+    try { // 7. [Cipher.doFinal(ByteBuffer input, ByteBuffer output) -> int]
         const finalKey = Cipher.doFinal.overload(
             "java.nio.ByteBuffer",
             "java.nio.ByteBuffer"
         );
 
-        finalKey.implementation = function (inputBuf, outputBuf) {
-            console.log("1. [Cipher.doFinal(ByteBuffer, ByteBuffer)]");
+        finalKey.implementation = function (input, output) {
+            console.log("7. [Cipher.doFinal(ByteBuffer input, ByteBuffer output) -> int]");
             
-            console.log("Input buffer: " + inputBuf);
-            console.log("Output buffer: " + outputBuf);
+            console.log("Input buffer: " + input);
+            console.log("Output buffer: " + output);
             
             //traceStack();
 
-            const result = finalKey.call(this, inputBuf, outputBuf);
+            const outputLen = finalKey.call(this, input, output);
 
-            return result;
+            if (outputLen > 0) {
+                console.log("Bytes written: " + outputLen);
+                console.log("Output buffer (HEX): " + bytesToHexRange(output, 0, outputLen));
+                console.log("Output buffer (ASCII): " + bytesToStringRange(output, 0, outputLen));
+            } else {
+                console.log("Output: <none>");
+            }
+
+            return outputLen;
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
     }
 
-    try { // 2. [Cipher.doFinal()]
+    try { // 1. [Cipher.doFinal() -> byte[]]
         const finalKey = Cipher.doFinal.overload();
 
         finalKey.implementation = function () {
-            console.log("2. [Cipher.doFinal()]")
+            console.log("1. [Cipher.doFinal() -> byte[]]")
 
-            const result = finalKey.call(this);
+            const output = finalKey.call(this);
+
             if (result !== null) {
-                console.log("Output (HEX): " + bytesToHex(result));
-                console.log("Output (ASCII): " + bytesToString(result));
+                console.log("Output (HEX): " + bytesToHex(output));
+                console.log("Output (ASCII): " + bytesToString(output));
             } else {
                 console.log("Output: <null>");
             }
 
             //traceStack();
 
-            return result;
+            return output;
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
     }
 
-    try { // 3. [Cipher.doFinal([B)]
+    try { // 2. [Cipher.doFinal(byte[] input) -> byte[]]
         const finalKey = Cipher.doFinal.overload(
             "[B"
         );
 
         finalKey.implementation = function (input) {
-            console.log("3. [Cipher.doFinal([B)]")
+            console.log("2. [Cipher.doFinal(byte[] input) -> byte[]]")
             console.log("Input (HEX): " + bytesToHex(input));
             console.log("Input (ASCII): " + bytesToString(input));
 
-            const result = finalKey.call(this, input);
-            if (result !== null) {
-                console.log("Output (HEX): " + bytesToHex(result));
-                console.log("Output (ASCII): " + bytesToString(result));
+            const output = finalKey.call(this, input);
+            
+            if (output !== null) {
+                console.log("Output (HEX): " + bytesToHex(output));
+                console.log("Output (ASCII): " + bytesToString(output));
             } else {
                 console.log("Output: <null>");
             }
             
             //traceStack();
 
-            return result;
+            return output;
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
     }
 
-    try { // 4. [Cipher.doFinal([B, int])]
+    try { // 3. [Cipher.doFinal(byte[] output, int outputOffset) -> int]
         const finalKey = Cipher.doFinal.overload(
             "[B",
             "int"
         );
 
         finalKey.implementation = function (output, outputOffset) {
-            console.log("4. [Cipher.doFinal([B, int])]");
+            console.log("3. [Cipher.doFinal(byte[] output, int outputOffset) -> int]");
 
-            const outputLength = finalKey.call(this, output, outputOffset);
+            const outputLen = finalKey.call(this, output, outputOffset);
             
-            if (outputLength > 0) {
-                console.log("Bytes written: " + outputLength);
-                console.log("Output (HEX): " + bytesToHexRange(output, 0, outputLength));
-                console.log("Output (ASCII): " + bytesToStringRange(output, 0, outputLength));
+            if (outputLen > 0) {
+                console.log("Bytes written: " + outputLen);
+                console.log("Output (HEX): " + bytesToHexRange(output, outputOffset, outputLen));
+                console.log("Output (ASCII): " + bytesToStringRange(output, outputOffset, outputLen));
             } else {
                 console.log("Output: <none>");
             }
 
             //traceStack();
 
-            return outputLength;
+            return outputLen;
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
     }
 
-    try { // 5. [Cipher.doFinal([B, int, int)]
+    try { // 4. [Cipher.doFinal(byte[] input, int inputOffset, int inputLen) -> byte[]]
         const finalKey = Cipher.doFinal.overload(
             "[B",
             "int",
             "int"
         );
 
-        finalKey.implementation = function (input, inputOffset, inputLength) {
-            console.log("5. [Cipher.doFinal([B, int, int)]");
+        finalKey.implementation = function (input, inputOffset, inputLen) {
+            console.log("4. [Cipher.doFinal(byte[] input, int inputOffset, int inputLen) -> byte[]]");
             console.log("Input offset: " + inputOffset);
-            console.log("Input length: " + inputLength);
+            console.log("Input length: " + inputLen);
             console.log("Input (HEX): " + bytesToHex(input));
-            console.log("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLength));
+            console.log("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLen));
 
-            const result = finalKey.call(this, input, inputOffset, inputLength);
+            const output = finalKey.call(this, input, inputOffset, inputLen);
             
-            if (result !== null) {
-                console.log("Output (HEX): " + bytesToHex(result));
-                console.log("Output (ASCII): " + bytesToString(result));
+            if (output !== null) {
+                console.log("Output (HEX): " + bytesToHex(output));
+                console.log("Output (ASCII): " + bytesToString(output));
             } else {
                 console.log("Output: <null>");
             }
             
             //traceStack();
 
-            return result;
+            return output;
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
     }
 
-    try { // 6. [Cipher.doFinal([B, int, int, [B)]
+    try { // 5. [Cipher.doFinal(byte[] input, int inputOffset, int inputLen, byte[] output) -> int]
         const finalKey = Cipher.doFinal.overload();
 
-        finalKey.implementation = function (input, inputOffset, inputLength, output) {
-            console.log("6. [Cipher.doFinal([B, int, int, [B)]");
+        finalKey.implementation = function (input, inputOffset, inputLen, output) {
+            console.log("5. [Cipher.doFinal(byte[] input, int inputOffset, int inputLen, byte[] output) -> int]");
             console.log("Input offset: " + inputOffset);
-            console.log("Input length: " + inputLength);
+            console.log("Input length: " + inputLen);
             console.log("Input (HEX): " + bytesToHex(input));
-            console.log("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLength));
+            console.log("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLen));
         
-            const outputLength = finalKey.call(this, input, inputOffset, inputLength, output);
+            const outputLen = finalKey.call(this, input, inputOffset, inputLen, output);
 
-            if (outputLength > 0) {
-                console.log("Bytes written: " + outputLength);
-                console.log("Output (HEX): " + bytesToHexRange(output, 0, outputLength));
-                console.log("Output (ASCII): " + bytesToStringRange(output, 0, outputLength));
+            if (outputLen > 0) {
+                console.log("Bytes written: " + outputLen);
+                console.log("Output (HEX): " + bytesToHexRange(output, 0, outputLen));
+                console.log("Output (ASCII): " + bytesToStringRange(output, 0, outputLen));
             } else {
                 console.log("Output: <none>");
             }
 
             //traceStack();
 
-            return outputLength;
+            return outputLen;
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
     }
 
-    try { // 7. [Cipher.doFinal([B, int, int, [B, int)]
+    try { // 6. [Cipher.doFinal(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]
         const finalKey = Cipher.doFinal.overload();
 
-        finalKey.implementation = function (input, inputOffset, inputLength, output, outputOffset) {
-            console.log("7. [Cipher.doFinal([B, int, int, [B, int)]");
+        finalKey.implementation = function (input, inputOffset, inputLen, output, outputOffset) {
+            console.log("6. [Cipher.doFinal(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]");
             console.log("Input offset: " + inputOffset);
-            console.log("Input length: " + inputLength);
+            console.log("Input length: " + inputLen);
             console.log("Input (HEX): " + bytesToHex(input));
-            console.log("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLength));
+            console.log("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLen));
             
-            const outputLength = finalKey.call(this, input, inputOffset, inputLength, output, outputOffset);
-            console.log("Bytes written: " + outputLength);
+            const outputLen = finalKey.call(this, input, inputOffset, inputLen, output, outputOffset);
 
-            if (outputLength > 0) {
+            if (outputLen > 0) {
+                console.log("Bytes written: " + outputLen);
                 console.log("Output offset: " + outputOffset);
-                console.log("Output (HEX): " + bytesToHexRange(output, outputOffset, outputLength));
-                console.log("Output (ASCII): " + bytesToStringRange(output, outputOffset, outputLength));
+                console.log("Output (HEX): " + bytesToHexRange(output, outputOffset, outputLen));
+                console.log("Output (ASCII): " + bytesToStringRange(output, outputOffset, outputLen));
             } else {
                 console.log("Output: <none>");
             }
 
             //traceStack();
 
-            return outputLength;
+            return outputLen;
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
