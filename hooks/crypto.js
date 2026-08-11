@@ -157,6 +157,17 @@ function describe_opmode(opmode) {
     }
 }
 
+function byteArraySlice(src, offset, len) {
+    // Slice a subset of a given array
+    const result = [];
+
+    for (let i = offset; i < offset + len; i++) {
+        result.push(src[i]);
+    }
+
+    return result;
+}
+
 //  ------------
 // | Main Logic |
 //  ------------
@@ -816,6 +827,87 @@ Java.perform(function () {
             return cipher;
         };
     } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    //  ----------------------------
+    // | Cipher.updateAAD overloads |
+    //  ----------------------------
+    try { // 1. [Cipher.updateAAD(byte[] src) -> void]
+        const updateaadKey = Cipher.updateAAD.overload(
+            "[B"
+        );
+
+        updateaadKey.implementation = function (src) {
+            console.log("1. [Cipher.updateAAD(byte[] src) -> void]");
+            console.log("Source bytes (HEX): " + bytesToHex(src));
+            console.log("Source bytes (ASCII): " + bytesToString(src));
+
+            const result = updateaadKey.call(this, src);
+        };
+    } catch(e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 2. [Cipher.updateAAD(byte[] src, int offset, int len) -> void]
+        const updateaadKey = Cipher.updateAAD.overload(
+            "[B",
+            "int",
+            "int"
+        );
+
+        updateaadKey.implementation = function (src, offset, len) {
+            const aadSlice = byteArraySlice(src, offset, len);
+
+            console.log("2. [Cipher.updateAAD(byte[] src, int offset, int len) -> void]")
+            console.log("Source buffer (HEX): " + bytesToHex(src));
+            console.log("Offset: " + offset);
+            console.log("Length: " + len);
+            console.log("AAD (HEX): " + bytesToHex(aadSlice));
+            console.log("AAD (ASCII): " + bytesToString(aadSlice));
+
+            const result = updateaadKey.call(this, src, offset, len);
+        };
+    } catch(e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 3. [Cipher.updateAAD(ByteBufer src) -> void]
+        const updateaadKey = Cipher.updateAAD.overload(
+            "java.nio.ByteBuffer"
+        );
+
+        updateaadKey.implementation = function (src) {
+            console.log("3. [Cipher.updateAAD(ByteBufer src) -> void]");
+
+            const positionBefore = src.position();
+            const limitBefore = src.limit();
+            const remainingBefore = src.remaining();
+
+            console.log("Position before: " + positionBefore);
+            console.log("Limit before: " + limitBefore);
+            console.log("Remaining before: " + remainingBefore);
+
+            // Duplicate shares content but maintains its own position/limit state.
+            const duplicate = src.duplicate();
+
+            const aad = Java.array(
+                "byte",
+                new Array(remainingBefore).fill(0) // New array of length remainingBefore, filled with 0s
+            );
+
+            duplicate.get(aad); // Copy bytes from duplicate to aad
+
+            console.log("AAD (HEX): " + bytesToHex(aad));
+            console.log("AAD (ASCII): " + bytesToString(aad));
+
+            updateaadKey.call(this, src);
+
+            console.log("Position after: " + src.position());
+            console.log("Limit after: " + src.limit());
+            console.log("Remaining after: " + src.remaining());
+        };
+    } catch(e) {
         console.log("[+] Error message: " + e.message);
     }
 });
