@@ -51,7 +51,13 @@ function bytesToString(bytes) {
     for (let i = 0; i < bytes.length; ++i) {
         let val = bytes[i] & 0xFF;  // Get unsigned byte value
         // Only convert printable ASCII characters (32-126); otherwise, use a placeholder (.)
-        if (val >= 32 && val <= 126) {
+        if (val === 10) {
+            result += "\\n";
+        } else if (val === 13) {
+            result += "\\r";
+        } else if (val === 9) {
+            result += "\\t";
+        } else if (val >= 32 && val <= 126) {
             result += String.fromCharCode(val); // Convert only printable characters
         } else {
             result += '.';  // Replace non-printable characters with a dot
@@ -67,7 +73,13 @@ function bytesToStringRange(bytes, offset, length) {
     for (let i = 0; i < end; ++i) {
         let val = bytes[i] & 0xFF;  // Get unsigned byte value
         // Only convert printable ASCII characters (32-126); otherwise, use a placeholder (.)
-        if (val >= 32 && val <= 126) {
+        if (val === 10) {
+            result += "\\n";
+        } else if (val === 13) {
+            result += "\\r";
+        } else if (val === 9) {
+            result += "\\t";
+        } else if (val >= 32 && val <= 126) {
             result += String.fromCharCode(val); // Convert only printable characters
         } else {
             result += '.';  // Replace non-printable characters with a dot
@@ -179,10 +191,32 @@ function wrappedKeyTypeToString(type) {
     return "UNKNOWN(" + type + ")";
 }
 
+function base64FlagsToString(flags) {
+    const flagsToString = [];
+
+    if (flags === 0)
+        flagsToString.push("Default");
+    if (flags & 1)
+        flagsToString.push("NoPadding");
+    if (flags & 2)
+        flagsToString.push("NoWrap");
+    if (flags & 4)
+        flagsToString.push("Crlf");
+    if (flags & 8)
+        flagsToString.push("UrlSafe");
+    if (flags & 16)
+        flagsToString.push("NoClose");
+
+    return flagsToString.values();
+}
+
 //  ------------
 // | Main Logic |
 //  ------------
 Java.perform(function () {
+    //  ------------------
+    // | Cipher overloads |
+    //  ------------------
     const Cipher = Java.use("javax.crypto.Cipher");
 
     //  -----------------------
@@ -975,7 +1009,90 @@ Java.perform(function () {
 
             logKey(unwrappedKey);
 
+            //traceStack();
+
             return unwrappedKey;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+    
+    //  ------------------
+    // | Base64 overloads |
+    //  ------------------
+    const Base64 = Java.use("android.util.Base64");
+
+    //  -------------------------
+    // | Base64.encode overloads |
+    //  -------------------------
+    try { // 1. [Base64.encode(byte[] input, int flags) -> byte[]]
+        const encodeKey = Base64.encode.overload(
+            "[B",
+            "int"
+        );
+
+        encodeKey.implementation = function(input, flags) {
+            let flagString = "";
+            for (const i of base64FlagsToString(flags)) {
+                if (flagString === "") {
+                    flagString = i; 
+                } else {
+                    flagString = flagString + " " + i; 
+                }
+            }
+
+            console.log("1. [Base64.encode(byte[] input, int flags) -> byte[]]");
+            console.log("Input (HEX): " + bytesToHex(input));
+            console.log("Input (ASCII): " + bytesToString(input));
+            console.log("Input length: " + input.length);
+            console.log("Flags (Numerical): " + flags);
+            console.log("Flags (String): " + flagString);
+
+            const encodedString = encodeKey.call(this, input, flags);
+
+            console.log("Encoded string (HEX): " + bytesToHex(encodedString));
+            console.log("Encoded string (ASCII): " + bytesToString(encodedString));
+            console.log("Encoded string length: " + encodedString.length);
+
+            return encodedString;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 2. [Base64.encode(byte[] input, int offset, int len, int flags) -> byte[]]
+        const encodeKey = Base64.encode.overload(
+            "[B",
+            "int",
+            "int",
+            "int"
+        );
+
+        encodeKey.implementation = function(input, offset, len, flags) {
+            let flagString = "";
+            for (const i of base64FlagsToString(flags)) {
+                if (flagString === "") {
+                    flagString = i; 
+                } else {
+                    flagString = flagString + " " + i; 
+                }
+            }
+
+            console.log("2. [Base64.encode(byte[input, int offset, int len, int flags]) -> byte[]]");
+            console.log("Input (HEX): " + bytesToHexRange(input, offset, len));
+            console.log("Input (ASCII): " + bytesToStringRange(input, offset, len));
+            console.log("Input length: " + input.length);
+            console.log("Input offset: " + offset);
+            console.log("Input length: " + len);
+            console.log("Flags (Numerical): " + flags);
+            console.log("Flags (String): " + flagString);
+            const encodedString = encodeKey.call(this, input, offset, len, flags);
+
+            console.log("Encoded string (HEX): " + bytesToHex(encodedString));
+            console.log("Encoded string (ASCII): " + bytesToString(encodedString));
+            console.log("Encoded string length: " + encodedString.length);
+
+            return encodedString;
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
