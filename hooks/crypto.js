@@ -168,6 +168,17 @@ function byteArraySlice(src, offset, len) {
     return result;
 }
 
+function wrappedKeyTypeToString(type) {
+    if (type === 1)
+        return "PUBLIC_KEY";
+    if (type === 2)
+        return "PRIVATE_KEY";
+    if (type === 3)
+        return "SECRET_KEY";
+
+    return "UNKNOWN(" + type + ")";
+}
+
 //  ------------
 // | Main Logic |
 //  ------------
@@ -914,6 +925,59 @@ Java.perform(function () {
             //traceStack();
         };
     } catch(e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    //  -----------------------
+    // | Cipher.wrap overloads |
+    //  -----------------------
+    try { // 1. [Cipher.wrap(java.security.Key) -> byte[]]
+        const wrapKey = Cipher.wrap.overload(
+            "java.security.Key"
+        );
+
+        wrapKey.implementation = function (key) {
+            console.log("1. [Cipher.wrap(java.security.Key) -> byte[]]");
+            console.log("Cipher transformation: " + this.getAlgorithm());
+
+            logKey(key);
+
+            const wrappedKey = wrapKey.call(this, key);
+
+            console.log("Wrapped key (HEX): " + bytesToHex(wrappedKey));
+
+            //traceStack();
+
+            return wrappedKey;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+    
+    //  -------------------------
+    // | Cipher.unwrap overloads |
+    //  -------------------------
+    try { // 1. [Cipher.unwrap(byte[] wrappedKey, String wrappedKeyAlgorithm, int wrappedKeyType) -> Key]
+        const unwrapKey = Cipher.unwrap.overload(
+            "[B",
+            "java.lang.String",
+            "int"
+        );
+
+        unwrapKey.implementation = function (wrappedKey, wrappedKeyAlgorithm, wrappedKeyType) {
+            console.log("1. [Cipher.unwrap(byte[] wrappedKey, String wrappedKeyAlgorithm, int wrappedKeyType) -> Key]");
+            console.log("Cipher transformation: " + this.getAlgorithm());
+            console.log("Wrapped key: " + bytesToHex(wrappedKey));
+            console.log("Wrapped key algorithm: " + wrappedKeyAlgorithm.toString());
+            console.log("Wrapped key type: " + wrappedKeyTypeToString(wrappedKeyType) + " (" + wrappedKeyType + ")");
+
+            const unwrappedKey = unwrapKey.call(this, wrappedKey, wrappedKeyAlgorithm, wrappedKeyType);
+
+            logKey(unwrappedKey);
+
+            return unwrappedKey;
+        };
+    } catch (e) {
         console.log("[+] Error message: " + e.message);
     }
 });
