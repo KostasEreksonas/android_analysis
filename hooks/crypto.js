@@ -191,9 +191,9 @@ Java.perform(function () {
             console.log("Certificate type: " + certificate.getType());
             console.log("Public key: " + certificate.getPublicKey());
 
-            //traceStack();
+            initKey.call(this, opmode, certificate);
 
-            return initKey.call(this, opmode, certificate);
+            //traceStack();
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -215,9 +215,9 @@ Java.perform(function () {
             console.log("Public key: " + certificate.getPublicKey());
             console.log("SecureRandom: " + random);
 
-            //traceStack();
+            initKey.call(this, opmode, certificate, random);
 
-            return initKey.call(this, opmode, certificate, random);
+            //traceStack();
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -236,9 +236,9 @@ Java.perform(function () {
 
             logKey(key);
 
-            //traceStack();
+            initKey.call(this, opmode, key);
 
-            return initKey.call(this, opmode, key);
+            //traceStack();
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -259,9 +259,9 @@ Java.perform(function () {
             logKey(key);
             logAlgorithmParameters(params);
 
-            //traceStack();
+            initKey.call(this, opmode, key, params);
 
-            return initKey.call(this, opmode, key, params);
+            //traceStack();
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -282,9 +282,9 @@ Java.perform(function () {
             logKey(key);
             logAlgorithmParameterSpec(params);
 
-            //traceStack();
+            initKey.call(this, opmode, key, params);
 
-            return initKey.call(this, opmode, key, params);
+            //traceStack();
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -308,9 +308,9 @@ Java.perform(function () {
 
             console.log("SecureRandom: " + random);
 
-            //traceStack();
+            initKey.call(this, opmode, key, params, random);
 
-            return initKey.call(this, opmode, key, params, random);
+            //traceStack();
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -334,9 +334,9 @@ Java.perform(function () {
 
             console.log("SecureRandom: " + random);
 
-            //traceStack();
+            initKey.call(this, opmode, key, params, random);
 
-            return initKey.call(this, opmode, key, params, random);
+            //traceStack();
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -358,9 +358,9 @@ Java.perform(function () {
 
             console.log("SecureRandom: " + random);
 
-            //traceStack();
+            initKey.call(this, opmode, key, random);
 
-            return initKey.call(this, opmode, key, random);
+            //traceStack();
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -843,7 +843,9 @@ Java.perform(function () {
             console.log("Source bytes (HEX): " + bytesToHex(src));
             console.log("Source bytes (ASCII): " + bytesToString(src));
 
-            const result = updateaadKey.call(this, src);
+            updateaadKey.call(this, src);
+
+            //traceStack();
         };
     } catch(e) {
         console.log("[+] Error message: " + e.message);
@@ -866,7 +868,9 @@ Java.perform(function () {
             console.log("AAD (HEX): " + bytesToHex(aadSlice));
             console.log("AAD (ASCII): " + bytesToString(aadSlice));
 
-            const result = updateaadKey.call(this, src, offset, len);
+            updateaadKey.call(this, src, offset, len);
+
+            //traceStack();
         };
     } catch(e) {
         console.log("[+] Error message: " + e.message);
@@ -906,6 +910,8 @@ Java.perform(function () {
             console.log("Position after: " + src.position());
             console.log("Limit after: " + src.limit());
             console.log("Remaining after: " + src.remaining());
+
+            //traceStack();
         };
     } catch(e) {
         console.log("[+] Error message: " + e.message);
