@@ -70,7 +70,7 @@ function bytesToStringRange(bytes, offset, length) {
     let result = '';
     const end = Math.min(offset + length, bytes.length);
 
-    for (let i = 0; i < end; ++i) {
+    for (let i = offset; i < end; ++i) {
         let val = bytes[i] & 0xFF;  // Get unsigned byte value
         // Only convert printable ASCII characters (32-126); otherwise, use a placeholder (.)
         if (val === 10) {
@@ -1048,7 +1048,7 @@ Java.perform(function () {
             let flagString = base64FlagsToString(flags);
 
             console.log("1. [Base64.encode(byte[] input, int flags) -> byte[]]");
-            console.log("Input (HEX): " + bytesToHex(input));
+            //console.log("Input (HEX): " + bytesToHex(input));
             console.log("Input (ASCII): " + bytesToString(input));
             console.log("Input length: " + input.length);
             console.log("Flags (Numerical): " + flags);
@@ -1056,9 +1056,11 @@ Java.perform(function () {
 
             const encodedString = encodeKey.call(this, input, flags);
 
-            console.log("Encoded string (HEX): " + bytesToHex(encodedString));
+            //console.log("Encoded string (HEX): " + bytesToHex(encodedString));
             console.log("Encoded string (ASCII): " + bytesToString(encodedString));
             console.log("Encoded string length: " + encodedString.length);
+
+            //traceStack();
 
             return encodedString;
         };
@@ -1078,18 +1080,21 @@ Java.perform(function () {
             let flagString = base64FlagsToString(flags);
 
             console.log("2. [Base64.encode(byte[input, int offset, int len, int flags]) -> byte[]]");
-            console.log("Input (HEX): " + bytesToHexRange(input, offset, len));
+            //console.log("Input (HEX): " + bytesToHexRange(input, offset, len));
             console.log("Input (ASCII): " + bytesToStringRange(input, offset, len));
             console.log("Input length: " + input.length);
             console.log("Input offset: " + offset);
             console.log("Input length: " + len);
-            console.log("Flags (Numerical): " + flags);
+            //console.log("Flags (Numerical): " + flags);
             console.log("Flags (String): " + flagString);
+
             const encodedString = encodeKey.call(this, input, offset, len, flags);
 
-            console.log("Encoded string (HEX): " + bytesToHex(encodedString));
+            //console.log("Encoded string (HEX): " + bytesToHex(encodedString));
             console.log("Encoded string (ASCII): " + bytesToString(encodedString));
             console.log("Encoded string length: " + encodedString.length);
+
+            //traceStack();
 
             return encodedString;
         };
@@ -1110,16 +1115,18 @@ Java.perform(function () {
             let flagString = base64FlagsToString(flags);
 
             console.log("1. [Base64.encodeToString(byte[] input, int flags) -> java.lang.String]");
-            console.log("Input (HEX): " + bytesToHex(input));
+            //console.log("Input (HEX): " + bytesToHex(input));
             console.log("Input (ASCII): " + bytesToString(input));
             console.log("Input length: " + input.length);
-            console.log("Flags (Numerical): " + flags);
+            //console.log("Flags (Numerical): " + flags);
             console.log("Flags (String): " + flagString);
 
             const encodedString = encodeKey.call(this, input, flags);
 
-            console.log("Encoded string (ASCII): " + encodedString);
+            console.log("Encoded string: " + encodedString);
             console.log("Encoded string length: " + encodedString.length);
+
+            //traceStack();
 
             return encodedString;
         };
@@ -1139,17 +1146,20 @@ Java.perform(function () {
             let flagString = base64FlagsToString(flags);
 
             console.log("2. [Base64.encodeToString(byte[] input, int offset, int len, int flags]) -> java.lang.String]");
-            console.log("Input (HEX): " + bytesToHexRange(input, offset, len));
+            //console.log("Input (HEX): " + bytesToHexRange(input, offset, len));
             console.log("Input (ASCII): " + bytesToStringRange(input, offset, len));
             console.log("Input length: " + input.length);
             console.log("Input offset: " + offset);
             console.log("Input length: " + len);
-            console.log("Flags (Numerical): " + flags);
+            //console.log("Flags (Numerical): " + flags);
             console.log("Flags (String): " + flagString);
+
             const encodedString = encodeKey.call(this, input, offset, len, flags);
 
-            console.log("Encoded string (ASCII): " + encodedString);
+            console.log("Encoded string: " + encodedString);
             console.log("Encoded string length: " + encodedString.length);
+
+            //traceStack();
 
             return encodedString;
         };
@@ -1176,7 +1186,7 @@ Java.perform(function () {
 
             const decodedString = decodeKey.call(this, str, flags);
 
-            console.log("Decoded output (HEX): " + bytesToHex(decodedString));
+            //console.log("Decoded output (HEX): " + bytesToHex(decodedString));
             console.log("Decoded output (ASCII): " + bytesToString(decodedString));
 
             //traceStack();
@@ -1197,14 +1207,14 @@ Java.perform(function () {
             let flagString = base64FlagsToString(flags);
 
             console.log("2. [Base64.decode(byte[] input, int flags) -> byte[]]");
-            console.log("Encoded input (HEX): " + bytesToHex(input));
+            //console.log("Encoded input (HEX): " + bytesToHex(input));
             console.log("Encoded input (ASCII): " + bytesToString(input));
-            console.log("Flags (Numerical): " + flags);
+            //console.log("Flags (Numerical): " + flags);
             console.log("Flags (String): " + flagString);
 
             const decodedString = decodeKey.call(this, input, flags);
 
-            console.log("Decoded output (HEX): " + bytesToHex(decodedString));
+            //console.log("Decoded output (HEX): " + bytesToHex(decodedString));
             console.log("Decoded output (ASCII): " + bytesToString(decodedString));
 
             //traceStack();
@@ -1227,19 +1237,137 @@ Java.perform(function () {
             let flagString = base64FlagsToString(flags);
 
             console.log("3. [Base64.decode(byte[] input, int offset, int len, int flags) -> byte[]]");
-            console.log("Encoded input (HEX): " + bytesToHexRange(input, offset, len));
+            //console.log("Encoded input (HEX): " + bytesToHexRange(input, offset, len));
             console.log("Encoded input (ASCII): " + bytesToStringRange(input, offset, len));
-            console.log("Flags (Numerical): " + flags);
+            //console.log("Flags (Numerical): " + flags);
             console.log("Flags (String): " + flagString);
 
             const decodedString = decodeKey.call(this, input, offset, len, flags);
 
-            console.log("Decoded output (HEX): " + bytesToHex(decodedString));
+            //console.log("Decoded output (HEX): " + bytesToHex(decodedString));
             console.log("Decoded output (ASCII): " + bytesToString(decodedString));
 
             //traceStack();
 
             return decodedString;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+    
+    //  -------------------------
+    // | SecretKeySpec overloads |
+    //  -------------------------
+    const SecretKeySpec = Java.use("javax.crypto.spec.SecretKeySpec");
+
+    //  -------------------------------
+    // | SecretKeySpec.$init overloads |
+    //  -------------------------------
+    try { // 1. [SecretKeySpec.$init(byte[] key, String algorithm)] -> void
+        const initKeySpec = SecretKeySpec.$init.overload(
+            "[B",
+            "java.lang.String"
+        );
+
+        initKeySpec.implementation = function (key, algorithm) {
+            console.log("1. [SecretKeySpec.$init(byte[] key, String algorithm) -> void]");
+            console.log("Key: " + bytesToHex(key));
+            console.log("Algorithm: " + algorithm);
+
+            initKeySpec.call(this, key, algorithm);
+            
+            console.log("getAlgorithm(): " + this.getAlgorithm());
+            console.log("getFormat(): " + this.getFormat());
+
+            const encoded = this.getEncoded();
+            console.log("getEncoded() length: " + encoded.length);
+
+            //traceStack();
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 2. [SecretKeySpec.$init(byte[] key, int offset, int len, String algorithm) -> void]
+        const initKeySpec = SecretKeySpec.$init.overload(
+            "[B",
+            "int",
+            "int",
+            "java.lang.String"
+        );
+
+        initKeySpec.implementation = function (key, offset, len, algorithm) {
+            console.log("2. [SecretKeySpec.$init(byte[] key, int offset, int len, String algorithm) -> void]");
+            console.log("Key: " + bytesToHex(key));
+            console.log("Offset: " + offset);
+            console.log("Length: " + len);
+            console.log("Algorithm: " + algorithm);
+
+            initKeySpec.call(this, key, offset, len, algorithm);
+            
+            console.log("getAlgorithm(): " + this.getAlgorithm());
+            console.log("getFormat(): " + this.getFormat());
+
+            const encoded = this.getEncoded();
+            console.log("getEncoded() length: " + encoded.length);
+
+            //traceStack();
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    //  ---------------------------
+    // | IvParameterSpec overloads |
+    //  ---------------------------
+    const IvParameterSpec = Java.use('javax.crypto.spec.IvParameterSpec');
+
+    //  ---------------------------------
+    // | IvParameterSpec.$init overloads |
+    //  ---------------------------------
+    try { // 1. [IvParameterSpec(byte[] iv) -> void]
+        const initIvKey = IvParameterSpec.$init.overload(
+            "[B"
+        );
+
+        initIvKey.implementation = function (iv) {
+            console.log("1. [IvParameterSpec(byte[] iv) -> void]");
+            console.log("IV: " + bytesToHex(iv));
+
+            initIvKey.call(this, iv);
+
+            const storedIv = this.getIV();
+
+            console.log("Constructed IV length: " + storedIv.length);
+            console.log("Constructed IV: " + bytesToHex(storedIv));
+
+            //traceStack();
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 2. [IvParameterSpec(byte[] iv, int offset, int len) -> void]
+        const initIvKey = IvParameterSpec.$init.overload(
+            "[B",
+            "int",
+            "int"
+        );
+
+        initIvKey.implementation = function (iv, offset, len) {
+            console.log("2. [IvParameterSpec(byte[] iv, int offset, int len) -> void]");
+            console.log("IV: " + bytesToHex(iv));
+            console.log("Offset: " + offset);
+            console.log("Length: " + len);
+
+            initIvKey.call(this, iv, offset, len);
+
+            const storedIv = this.getIV();
+
+            console.log("Constructed IV length: " + storedIv.length);
+            console.log("Constructed IV: " + bytesToHexRange(storedIv, offset, len));
+
+            //traceStack();
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
