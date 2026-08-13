@@ -182,7 +182,7 @@ activity_log() {
 	local log_name="${1}"
 	local app_name="${2}"
 
-	adb logcat -d > "${log_name}"
+	adb logcat -c && adb logcat -v time > "${log_name}"
 	grep "${app_name}" "${log_name}" > "${app_log}"
 	grep "frida-server" "${log_name}" > "${frida_activity_log}"
 
