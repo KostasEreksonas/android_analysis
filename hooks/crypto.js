@@ -1,5 +1,7 @@
 'use strict';
 
+let maxPrintableLength = 128; // Limit length of logged hex and ascii strings
+
 function traceStack() {
     var stack = Java.use("java.lang.Exception").$new().getStackTrace();
 
@@ -10,7 +12,7 @@ function traceStack() {
         var fileName = element.getFileName();
         var lineNumber = element.getLineNumber();
 
-        console.log("Class name: " + className + " Method name: " + methodName + " File name: " + fileName + " Line number: " + lineNumber);
+        console.log("" + className + "." + methodName + "; " + fileName + "." + lineNumber);
     }
 }
 
@@ -20,6 +22,7 @@ function bytesToHex(bytes, maxLength) {
     }
 
     let result = "";
+
     // A limit of 0 (or no limit) means the whole array. Never iterate past
     // the actual array length when the requested limit is larger than it.
     const hasLimit = typeof maxLength === "number" && maxLength > 0;
@@ -41,11 +44,16 @@ function bytesToHex(bytes, maxLength) {
     return result;
 }
 
-function bytesToHexRange(bytes, offset, length) {
+function bytesToHexRange(bytes, offset, length, maxLength) {
     let result = "";
     const end = Math.min(offset + length, bytes.length);
 
-    for (let i = offset; i < end; i++) {
+    // A limit of 0 (or no limit) means the whole array. Never iterate past
+    // the actual array length when the requested limit is larger than it.
+    const hasLimit = typeof maxLength === "number" && maxLength > 0;
+    const len = hasLimit ? Math.min(maxLength, end) : end;
+
+    for (let i = offset; i < len; i++) {
         let v = bytes[i];
 
         if (v < 0)
@@ -54,17 +62,26 @@ function bytesToHexRange(bytes, offset, length) {
         result += ("0" + v.toString(16)).slice(-2);
     }
 
+    if (hasLimit && bytes.length > len) {
+        result += ` ... [${bytes.length - len} more bytes]`;
+    }
+
     return result;
 }
 
-function bytesToString(bytes) {
+function bytesToString(bytes, maxLength) {
     if (bytes === null || bytes === undefined) {
         return "<null>";
     }
 
     let result = '';
 
-    for (let i = 0; i < bytes.length; ++i) {
+    // A limit of 0 (or no limit) means the whole array. Never iterate past
+    // the actual array length when the requested limit is larger than it.
+    const hasLimit = typeof maxLength === "number" && maxLength > 0;
+    const len = hasLimit ? Math.min(maxLength, bytes.length) : bytes.length;
+
+    for (let i = 0; i < len; ++i) {
         let val = bytes[i] & 0xFF;  // Get unsigned byte value
         // Only convert printable ASCII characters (32-126); otherwise, use a placeholder (.)
         if (val === 10) {
@@ -79,14 +96,24 @@ function bytesToString(bytes) {
             result += '.';  // Replace non-printable characters with a dot
         }
     }
+
+    if (hasLimit && bytes.length > len) {
+        result += ` ... [${bytes.length - len} more bytes]`;
+    }
+
     return result;
 }
 
-function bytesToStringRange(bytes, offset, length) {
+function bytesToStringRange(bytes, offset, length, maxLength) {
     let result = '';
     const end = Math.min(offset + length, bytes.length);
 
-    for (let i = offset; i < end; ++i) {
+    // A limit of 0 (or no limit) means the whole array. Never iterate past
+    // the actual array length when the requested limit is larger than it.
+    const hasLimit = typeof maxLength === "number" && maxLength > 0;
+    const len = hasLimit ? Math.min(maxLength, end) : end;
+
+    for (let i = offset; i < len; ++i) {
         let val = bytes[i] & 0xFF;  // Get unsigned byte value
         // Only convert printable ASCII characters (32-126); otherwise, use a placeholder (.)
         if (val === 10) {
@@ -101,6 +128,11 @@ function bytesToStringRange(bytes, offset, length) {
             result += '.';  // Replace non-printable characters with a dot
         }
     }
+
+    if (hasLimit && bytes.length > len) {
+        result += ` ... [${bytes.length - len} more bytes]`;
+    }
+
     return result;
 }
 
@@ -115,7 +147,7 @@ function logKey(key) {
     const encoded = key.getEncoded();
 
     if (encoded !== null)
-        console.log("Key bytes: " + bytesToHex(encoded, 294));
+        console.log("Key bytes: " + bytesToHex(encoded, maxPrintableLength));
 }
 
 function logAlgorithmParameters(params) {
@@ -126,7 +158,7 @@ function logAlgorithmParameters(params) {
     console.log("Parameters algorithm: " + params.getAlgorithm());
 
     try {
-        console.log("Parameters encoded: " + bytesToHex(params.getEncoded(), 256));
+        console.log("Parameters encoded: " + bytesToHex(params.getEncoded(), maxPrintableLength));
     } catch (e) {
         console.log("Could not encode parameters: " + e);
     }
@@ -139,27 +171,20 @@ function logAlgorithmParameterSpec(params) {
     console.log("Parameter class: " + params.$className);
 
     if (params.$className === "javax.crypto.spec.IvParameterSpec") {
-
         const IvParameterSpec = Java.use("javax.crypto.spec.IvParameterSpec");
-
         const ivSpec = Java.cast(params, IvParameterSpec);
-
-        console.log("IV: " + bytesToHex(ivSpec.getIV(), 256));
+        console.log("IV: " + bytesToHex(ivSpec.getIV(), maxPrintableLength));
     }
 
     if (params.$className === "javax.crypto.spec.GCMParameterSpec") {
-
         const GCMParameterSpec = Java.use("javax.crypto.spec.GCMParameterSpec");
-
         const gcm = Java.cast(params, GCMParameterSpec);
-
-        console.log("IV/nonce: " + bytesToHex(gcm.getIV(), 256));
-
+        console.log("IV/nonce: " + bytesToHex(gcm.getIV(), maxPrintableLength));
         console.log("GCM tag bits: " + gcm.getTLen());
     }
 }
 
-function describe_opmode(opmode) {
+function describeOpmode(opmode) {
     if (opmode === 1) {
         console.log("opmode: " + opmode + " (ENCRYPT)");
     } else if (opmode === 2) {
@@ -244,16 +269,16 @@ Java.perform(function () {
         );
 
         initKey.implementation = function (opmode, certificate) {
+            initKey.call(this, opmode, certificate);
+
             console.log("1. [Cipher.init(int opmode, Certificate certificate) -> void]");
             console.log("Algorithm: " + this.getAlgorithm());
-            describe_opmode(opmode);
+            describeOpmode(opmode);
 
             console.log("Certificate type: " + certificate.getType());
             console.log("Public key: " + certificate.getPublicKey());
 
-            initKey.call(this, opmode, certificate);
-
-            //traceStack();
+            traceStack();
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -267,17 +292,17 @@ Java.perform(function () {
         );
 
         initKey.implementation = function (opmode, certificate, random) {
+            initKey.call(this, opmode, certificate, random);
+
             console.log("2. [Cipher.init(int opmode, Certificate certificate, SecureRandom random) -> void]");
             console.log("Algorithm: " + this.getAlgorithm());
-            describe_opmode(opmode);
+            describeOpmode(opmode);
 
             console.log("Certificate type: " + certificate.getType());
             console.log("Public key: " + certificate.getPublicKey());
             console.log("SecureRandom: " + random);
 
-            initKey.call(this, opmode, certificate, random);
-
-            //traceStack();
+            traceStack();
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -290,15 +315,15 @@ Java.perform(function () {
         );
 
         initKey.implementation = function (opmode, key) {
+            initKey.call(this, opmode, key);
+
             console.log("3. [Cipher.init(int opmode, Key key) -> void]");
             console.log("Algorithm: " + this.getAlgorithm());
-            describe_opmode(opmode);
+            describeOpmode(opmode);
 
             logKey(key);
 
-            initKey.call(this, opmode, key);
-
-            //traceStack();
+            traceStack();
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -312,16 +337,16 @@ Java.perform(function () {
         );
 
         initKey.implementation = function (opmode, key, params) {
+            initKey.call(this, opmode, key, params);
+
             console.log("4. [Cipher.init(int opmode, Key key, AlgorithmParameters params) -> void]");
             console.log("Algorithm: " + this.getAlgorithm());
-            describe_opmode(opmode);
+            describeOpmode(opmode);
 
             logKey(key);
             logAlgorithmParameters(params);
 
-            initKey.call(this, opmode, key, params);
-
-            //traceStack();
+            traceStack();
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -335,16 +360,16 @@ Java.perform(function () {
         );
 
         initKey.implementation = function (opmode, key, params) {
+            initKey.call(this, opmode, key, params);
+
             console.log("5. [Cipher.init(int opmode, Key key, AlgorithmParameterSpec params) -> void]");
             console.log("Algorithm: " + this.getAlgorithm());
-            describe_opmode(opmode);
+            describeOpmode(opmode);
 
             logKey(key);
             logAlgorithmParameterSpec(params);
 
-            initKey.call(this, opmode, key, params);
-
-            //traceStack();
+            traceStack();
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -359,18 +384,18 @@ Java.perform(function () {
         );
 
         initKey.implementation = function (opmode, key, params, random) {
+            initKey.call(this, opmode, key, params, random);
+
             console.log("6. [Cipher.init(int opmode, Key key, AlgorithmParameterSpec params, SecureRandom random) -> void]");
             console.log("Algorithm: " + this.getAlgorithm());
-            describe_opmode(opmode);
+            describeOpmode(opmode);
 
             logKey(key);
             logAlgorithmParameterSpec(params);
 
             console.log("SecureRandom: " + random);
 
-            initKey.call(this, opmode, key, params, random);
-
-            //traceStack();
+            traceStack();
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -385,18 +410,18 @@ Java.perform(function () {
         );
 
         initKey.implementation = function (opmode, key, params, random) {
+            initKey.call(this, opmode, key, params, random);
+
             console.log("7. [Cipher.init(int opmode, Key key, AlgorithmParameters params, SecureRandom random) -> void]");
             console.log("Algorithm: " + this.getAlgorithm());
-            describe_opmode(opmode);
+            describeOpmode(opmode);
 
             logKey(key);
             logAlgorithmParameters(params);
 
             console.log("SecureRandom: " + random);
 
-            initKey.call(this, opmode, key, params, random);
-
-            //traceStack();
+            traceStack();
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -410,17 +435,17 @@ Java.perform(function () {
         );
 
         initKey.implementation = function (opmode, key, random) {
+            initKey.call(this, opmode, key, random);
+
             console.log("8. [Cipher.init(int opmode, Key key, SecureRandom random) -> void]");
             console.log("Algorithm: " + this.getAlgorithm());
-            describe_opmode(opmode);
+            describeOpmode(opmode);
 
             logKey(key);
 
             console.log("SecureRandom: " + random);
 
-            initKey.call(this, opmode, key, random);
-
-            //traceStack();
+            traceStack();
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -435,20 +460,20 @@ Java.perform(function () {
         );
 
         updateKey.implementation = function (input) {
-            console.log("1. [Cipher.update(byte[] input) -> byte[]]");
-            console.log("Input (HEX): " + bytesToHex(input, 256));
-            console.log("Input (ASCII): " + bytesToString(input));
-            
             const output = updateKey.call(this, input);
 
+            console.log("1. [Cipher.update(byte[] input) -> byte[]]");
+            console.log("Input (HEX): " + bytesToHex(input, maxPrintableLength));
+            console.log("Input (ASCII): " + bytesToString(input, maxPrintableLength));
+
             if (output !== null) {
-                console.log("Output (HEX): " + bytesToHex(output, 256));
-                console.log("Output (ASCII): " + bytesToString(output));
+                console.log("Output (HEX): " + bytesToHex(output, maxPrintableLength));
+                console.log("Output (ASCII): " + bytesToString(output, maxPrintableLength));
             } else {
                 console.log("Output: <none>");
             }
 
-            //traceStack();
+            traceStack();
 
             return output;
         };
@@ -464,22 +489,22 @@ Java.perform(function () {
         );
 
         updateKey.implementation = function (input, inputOffset, inputLen) {
+            const output = updateKey.call(this, input, inputOffset, inputLen);
+
             console.log("2. [Cipher.update(byte[] input, int inputOffset, int inputLen) -> byte[]]");
             console.log("Input offset: " + inputOffset);
             console.log("Input length: " + inputLen);
-            console.log("Input (HEX): " + bytesToHexRange(input, inputOffset, inputLen));
-            console.log("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLen));
-            
-            const output = updateKey.call(this, input, inputOffset, inputLen);
-            
+            console.log("Input (HEX): " + bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength));
+            console.log("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLen, maxPrintableLength));
+
             if (output !== null) {
-                console.log("Output (HEX): " + bytesToHex(output, 256));
-                console.log("Output (ASCII): " + bytesToString(output));
+                console.log("Output (HEX): " + bytesToHex(output, maxPrintableLength));
+                console.log("Output (ASCII): " + bytesToString(output, maxPrintableLength));
             } else {
                 console.log("Output: <none>");
             }
 
-            //traceStack();
+            traceStack();
 
             return output;
         };
@@ -496,24 +521,24 @@ Java.perform(function () {
         );
 
         updateKey.implementation = function (input, inputOffset, inputLen, output) {
+            const outputLen = updateKey.call(this, input, inputOffset, inputLen, output);
+
             console.log("3. [Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output) -> int]");
             console.log("Input offset: " + inputOffset);
             console.log("Input length: " + inputLen);
-            console.log("Input (HEX): " + bytesToHexRange(input, inputOffset, inputLen));
-            console.log("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLen));
-            
-            const outputLen = updateKey.call(this, input, inputOffset, inputLen, output);
-            
+            console.log("Input (HEX): " + bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength));
+            console.log("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLen, maxPrintableLength));
+
             if (outputLen > 0) {
                 console.log("Bytes written: " + outputLen);
-                console.log("Output (HEX): " + bytesToHexRange(output, 0, outputLen));
-                console.log("Output (ASCII): " + bytesToStringRange(output, 0, outputLen));
+                console.log("Output (HEX): " + bytesToHexRange(output, 0, outputLen, maxPrintableLength));
+                console.log("Output (ASCII): " + bytesToStringRange(output, 0, outputLen, maxPrintableLength));
             } else {
                 console.log("Output: <none>");
-            
+
             }
 
-            //traceStack();
+            traceStack();
 
             return outputLen;
         };
@@ -531,25 +556,25 @@ Java.perform(function () {
         );
 
         updateKey.implementation = function (input, inputOffset, inputLen, output, outputOffset) {
+            const outputLen = updateKey.call(this, input, inputOffset, inputLen, output, outputOffset);
+
             console.log("4. [Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]");
             console.log("Input offset: " + inputOffset);
             console.log("Input length: " + inputLen);
-            console.log("Input (HEX): " + bytesToHexRange(input, inputOffset, inputLen));
-            console.log("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLen));
-
-            const outputLen = updateKey.call(this, input, inputOffset, inputLen, output, outputOffset);
+            console.log("Input (HEX): " + bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength));
+            console.log("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLen, maxPrintableLength));
 
             if (outputLen > 0) {
                 console.log("Bytes written: " + outputLen);
                 console.log("Output offset: " + outputOffset);
-                console.log("Output (HEX): " + bytesToHexRange(output, outputOffset, outputLen));
-                console.log("Output (ASCII): " + bytesToStringRange(output, outputOffset, outputLen));
+                console.log("Output (HEX): " + bytesToHexRange(output, outputOffset, outputLen, maxPrintableLength));
+                console.log("Output (ASCII): " + bytesToStringRange(output, outputOffset, outputLen, maxPrintableLength));
             } else {
                 console.log("Output: <none>");
             }
 
-            //traceStack();
-            
+            traceStack();
+
             return outputLen;
         };
     } catch (e) {
@@ -563,21 +588,20 @@ Java.perform(function () {
         );
 
         updateKey.implementation = function (input, output) {
-            console.log("5. [Cipher.update(ByteBuffer input, ByteBuffer output) -> int]");
-            
-            console.log("Input buffer: " + input);
-            
-            //traceStack();
-
             const outputLen = updateKey.call(this, input, output);
+
+            console.log("5. [Cipher.update(ByteBuffer input, ByteBuffer output) -> int]");
+            console.log("Input buffer: " + input);
 
             if (outputLen > 0) {
                 console.log("Bytes written: " + outputLen);
-                console.log("Output buffer (HEX): " + bytesToHexRange(output, 0, outputLen));
-                console.log("Output buffer (ASCII): " + bytesToStringRange(output, 0, outputLen));
+                console.log("Output buffer (HEX): " + bytesToHexRange(output, 0, outputLen, maxPrintableLength));
+                console.log("Output buffer (ASCII): " + bytesToStringRange(output, 0, outputLen, maxPrintableLength));
             } else {
                 console.log("Output: <none>");
             }
+
+            traceStack();
 
             return outputLen;
         };
@@ -588,52 +612,22 @@ Java.perform(function () {
     //  --------------------------
     // | Cipher.doFinal overloads |
     //  --------------------------
-    try { // 7. [Cipher.doFinal(ByteBuffer input, ByteBuffer output) -> int]
-        const finalKey = Cipher.doFinal.overload(
-            "java.nio.ByteBuffer",
-            "java.nio.ByteBuffer"
-        );
-
-        finalKey.implementation = function (input, output) {
-            console.log("7. [Cipher.doFinal(ByteBuffer input, ByteBuffer output) -> int]");
-            
-            console.log("Input buffer: " + input);
-            console.log("Output buffer: " + output);
-            
-            //traceStack();
-
-            const outputLen = finalKey.call(this, input, output);
-
-            if (outputLen > 0) {
-                console.log("Bytes written: " + outputLen);
-                console.log("Output buffer (HEX): " + bytesToHexRange(output, 0, outputLen));
-                console.log("Output buffer (ASCII): " + bytesToStringRange(output, 0, outputLen));
-            } else {
-                console.log("Output: <none>");
-            }
-
-            return outputLen;
-        };
-    } catch (e) {
-        console.log("[+] Error message: " + e.message);
-    }
-
     try { // 1. [Cipher.doFinal() -> byte[]]
         const finalKey = Cipher.doFinal.overload();
 
         finalKey.implementation = function () {
-            console.log("1. [Cipher.doFinal() -> byte[]]")
-
             const output = finalKey.call(this);
 
+            console.log("1. [Cipher.doFinal() -> byte[]]")
+
             if (result !== null) {
-                console.log("Output (HEX): " + bytesToHex(output, 256));
-                console.log("Output (ASCII): " + bytesToString(output));
+                console.log("Output (HEX): " + bytesToHex(output, maxPrintableLength));
+                console.log("Output (ASCII): " + bytesToString(output, maxPrintableLength));
             } else {
                 console.log("Output: <null>");
             }
 
-            //traceStack();
+            traceStack();
 
             return output;
         };
@@ -647,20 +641,20 @@ Java.perform(function () {
         );
 
         finalKey.implementation = function (input) {
-            console.log("2. [Cipher.doFinal(byte[] input) -> byte[]]")
-            console.log("Input (HEX): " + bytesToHex(input, 256));
-            console.log("Input (ASCII): " + bytesToString(input));
-
             const output = finalKey.call(this, input);
-            
+
+            console.log("2. [Cipher.doFinal(byte[] input) -> byte[]]")
+            console.log("Input (HEX): " + bytesToHex(input, maxPrintableLength));
+            console.log("Input (ASCII): " + bytesToString(input, maxPrintableLength));
+
             if (output !== null) {
-                console.log("Output (HEX): " + bytesToHex(output, 256));
-                console.log("Output (ASCII): " + bytesToString(output));
+                console.log("Output (HEX): " + bytesToHex(output, maxPrintableLength));
+                console.log("Output (ASCII): " + bytesToString(output, maxPrintableLength));
             } else {
                 console.log("Output: <null>");
             }
-            
-            //traceStack();
+
+            traceStack();
 
             return output;
         };
@@ -675,19 +669,19 @@ Java.perform(function () {
         );
 
         finalKey.implementation = function (output, outputOffset) {
+            const outputLen = finalKey.call(this, output, outputOffset);
+
             console.log("3. [Cipher.doFinal(byte[] output, int outputOffset) -> int]");
 
-            const outputLen = finalKey.call(this, output, outputOffset);
-            
             if (outputLen > 0) {
                 console.log("Bytes written: " + outputLen);
-                console.log("Output (HEX): " + bytesToHexRange(output, outputOffset, outputLen));
-                console.log("Output (ASCII): " + bytesToStringRange(output, outputOffset, outputLen));
+                console.log("Output (HEX): " + bytesToHexRange(output, outputOffset, outputLen, maxPrintableLength));
+                console.log("Output (ASCII): " + bytesToStringRange(output, outputOffset, outputLen, maxPrintableLength));
             } else {
                 console.log("Output: <none>");
             }
 
-            //traceStack();
+            traceStack();
 
             return outputLen;
         };
@@ -703,22 +697,22 @@ Java.perform(function () {
         );
 
         finalKey.implementation = function (input, inputOffset, inputLen) {
+            const output = finalKey.call(this, input, inputOffset, inputLen);
+
             console.log("4. [Cipher.doFinal(byte[] input, int inputOffset, int inputLen) -> byte[]]");
             console.log("Input offset: " + inputOffset);
             console.log("Input length: " + inputLen);
-            console.log("Input (HEX): " + bytesToHexRange(input, inputOffset, inputLen));
-            console.log("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLen));
+            console.log("Input (HEX): " + bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength));
+            console.log("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLen, maxPrintableLength));
 
-            const output = finalKey.call(this, input, inputOffset, inputLen);
-            
             if (output !== null) {
-                console.log("Output (HEX): " + bytesToHex(output, 256));
-                console.log("Output (ASCII): " + bytesToString(output));
+                console.log("Output (HEX): " + bytesToHex(output, maxPrintableLength));
+                console.log("Output (ASCII): " + bytesToString(output, maxPrintableLength));
             } else {
                 console.log("Output: <null>");
             }
-            
-            //traceStack();
+
+            traceStack();
 
             return output;
         };
@@ -730,23 +724,23 @@ Java.perform(function () {
         const finalKey = Cipher.doFinal.overload();
 
         finalKey.implementation = function (input, inputOffset, inputLen, output) {
+            const outputLen = finalKey.call(this, input, inputOffset, inputLen, output);
+
             console.log("5. [Cipher.doFinal(byte[] input, int inputOffset, int inputLen, byte[] output) -> int]");
             console.log("Input offset: " + inputOffset);
             console.log("Input length: " + inputLen);
-            console.log("Input (HEX): " + bytesToHexRange(input, inputOffset, inputLen));
-            console.log("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLen));
-        
-            const outputLen = finalKey.call(this, input, inputOffset, inputLen, output);
+            console.log("Input (HEX): " + bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength));
+            console.log("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLen, maxPrintableLength));
 
             if (outputLen > 0) {
                 console.log("Bytes written: " + outputLen);
-                console.log("Output (HEX): " + bytesToHexRange(output, 0, outputLen));
-                console.log("Output (ASCII): " + bytesToStringRange(output, 0, outputLen));
+                console.log("Output (HEX): " + bytesToHexRange(output, 0, outputLen, maxPrintableLength));
+                console.log("Output (ASCII): " + bytesToStringRange(output, 0, outputLen, maxPrintableLength));
             } else {
                 console.log("Output: <none>");
             }
 
-            //traceStack();
+            traceStack();
 
             return outputLen;
         };
@@ -758,31 +752,61 @@ Java.perform(function () {
         const finalKey = Cipher.doFinal.overload();
 
         finalKey.implementation = function (input, inputOffset, inputLen, output, outputOffset) {
+            const outputLen = finalKey.call(this, input, inputOffset, inputLen, output, outputOffset);
+
             console.log("6. [Cipher.doFinal(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]");
             console.log("Input offset: " + inputOffset);
             console.log("Input length: " + inputLen);
-            console.log("Input (HEX): " + bytesToHexRange(input, inputOffset, inputLen));
-            console.log("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLen));
-            
-            const outputLen = finalKey.call(this, input, inputOffset, inputLen, output, outputOffset);
+            console.log("Input (HEX): " + bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength));
+            console.log("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLen, maxPrintableLength));
 
             if (outputLen > 0) {
                 console.log("Bytes written: " + outputLen);
                 console.log("Output offset: " + outputOffset);
-                console.log("Output (HEX): " + bytesToHexRange(output, outputOffset, outputLen));
-                console.log("Output (ASCII): " + bytesToStringRange(output, outputOffset, outputLen));
+                console.log("Output (HEX): " + bytesToHexRange(output, outputOffset, outputLen, maxPrintableLength));
+                console.log("Output (ASCII): " + bytesToStringRange(output, outputOffset, outputLen, maxPrintableLength));
             } else {
                 console.log("Output: <none>");
             }
 
-            //traceStack();
+            traceStack();
 
             return outputLen;
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
     }
-    
+
+    try { // 7. [Cipher.doFinal(ByteBuffer input, ByteBuffer output) -> int]
+        const finalKey = Cipher.doFinal.overload(
+            "java.nio.ByteBuffer",
+            "java.nio.ByteBuffer"
+        );
+
+        finalKey.implementation = function (input, output) {
+            const outputLen = finalKey.call(this, input, output);
+
+            console.log("7. [Cipher.doFinal(ByteBuffer input, ByteBuffer output) -> int]");
+
+            console.log("Input buffer: " + input);
+            console.log("Output buffer: " + output);
+
+            if (outputLen > 0) {
+                console.log("Bytes written: " + outputLen);
+                console.log("Output buffer (HEX): " + bytesToHexRange(output, 0, outputLen, maxPrintableLength));
+                console.log("Output buffer (ASCII): " + bytesToStringRange(output, 0, outputLen, maxPrintableLength));
+            } else {
+                console.log("Output: <none>");
+            }
+
+            traceStack();
+
+            return outputLen;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
     //  ------------------------------
     // | Cipher.getInstance overloads |
     //  ------------------------------
@@ -792,14 +816,14 @@ Java.perform(function () {
         );
 
         instanceKey.implementation = function(transformation) {
+            const cipher = instanceKey.call(this, transformation);
+
             console.log("1. [Cipher.getInstance(java.lang.String) -> static Cipher]")
             console.log("Requested transformation: " + transformation);
 
-            const cipher = instanceKey.call(this, transformation);
-
             console.log("getAlgorithm(): " + cipher.getAlgorithm());
             console.log("Runtime class: " + cipher.getClass().getName());
-            
+
             try {
                 console.log("Block size: " + cipher.getBlockSize());
             } catch (e) {
@@ -814,6 +838,8 @@ Java.perform(function () {
                 console.log("Provider class: " + provider.getClass().getName());
             }
 
+            traceStack();
+
             return cipher;
         }
     } catch (e) {
@@ -827,15 +853,15 @@ Java.perform(function () {
         );
 
         instanceKey.implementation = function (transformation, provider) {
+            const cipher = instanceKey.call(this, transformation, provider);
+
             console.log("2. [Cipher.getInstance(java.lang.String, java.lang.String) -> static Cipher]")
             console.log("Requested transformation: " + transformation);
             console.log("Requested provider: " + provider);
 
-            const cipher = instanceKey.call(this, transformation, provider);
-
             console.log("getAlgorithm(): " + cipher.getAlgorithm());
             console.log("Runtime class: " + cipher.getClass().getName());
-            
+
             try {
                 console.log("Block size: " + cipher.getBlockSize());
             } catch (e) {
@@ -850,6 +876,8 @@ Java.perform(function () {
                 console.log("Provider class: " + cipherProvider.getClass().getName());
             }
 
+            traceStack();
+
             return cipher;
         };
     } catch (e) {
@@ -863,14 +891,14 @@ Java.perform(function () {
         );
 
         instanceKey.implementation = function (transformation, provider) {
+            const cipher = instanceKey.call(this, transformation, provider);
+
             console.log("3. [Cipher.getInstance(java.lang.String, java.security.Provider) -> static Cipher]")
             console.log("Requested transformation: " + transformation);
 
-            const cipher = instanceKey.call(this, transformation, provider);
-
             console.log("getAlgorithm(): " + cipher.getAlgorithm());
             console.log("Runtime class: " + cipher.getClass().getName());
-            
+
             try {
                 console.log("Block size: " + cipher.getBlockSize());
             } catch (e) {
@@ -883,6 +911,8 @@ Java.perform(function () {
                 console.log("Provider info: " + provider.getInfo());
                 console.log("Provider class: " + provider.getClass().getName());
             }
+
+            traceStack();
 
             return cipher;
         };
@@ -899,13 +929,13 @@ Java.perform(function () {
         );
 
         updateaadKey.implementation = function (src) {
-            console.log("1. [Cipher.updateAAD(byte[] src) -> void]");
-            console.log("Source bytes (HEX): " + bytesToHex(src, 256));
-            console.log("Source bytes (ASCII): " + bytesToString(src));
-
             updateaadKey.call(this, src);
 
-            //traceStack();
+            console.log("1. [Cipher.updateAAD(byte[] src) -> void]");
+            console.log("Source bytes (HEX): " + bytesToHex(src, maxPrintableLength));
+            console.log("Source bytes (ASCII): " + bytesToString(src, maxPrintableLength));
+
+            traceStack();
         };
     } catch(e) {
         console.log("[+] Error message: " + e.message);
@@ -919,18 +949,18 @@ Java.perform(function () {
         );
 
         updateaadKey.implementation = function (src, offset, len) {
+            updateaadKey.call(this, src, offset, len);
+
             const aadSlice = byteArraySlice(src, offset, len);
 
             console.log("2. [Cipher.updateAAD(byte[] src, int offset, int len) -> void]")
-            console.log("Source buffer (HEX): " + bytesToHex(src, 256));
+            console.log("Source buffer (HEX): " + bytesToHex(src, maxPrintableLength));
             console.log("Offset: " + offset);
             console.log("Length: " + len);
-            console.log("AAD (HEX): " + bytesToHex(aadSlice, 256));
-            console.log("AAD (ASCII): " + bytesToString(aadSlice));
+            console.log("AAD (HEX): " + bytesToHex(aadSlice, maxPrintableLength));
+            console.log("AAD (ASCII): " + bytesToString(aadSlice, maxPrintableLength));
 
-            updateaadKey.call(this, src, offset, len);
-
-            //traceStack();
+            traceStack();
         };
     } catch(e) {
         console.log("[+] Error message: " + e.message);
@@ -942,11 +972,13 @@ Java.perform(function () {
         );
 
         updateaadKey.implementation = function (src) {
-            console.log("3. [Cipher.updateAAD(ByteBufer src) -> void]");
-
             const positionBefore = src.position();
             const limitBefore = src.limit();
             const remainingBefore = src.remaining();
+
+            updateaadKey.call(this, src);
+
+            console.log("3. [Cipher.updateAAD(ByteBufer src) -> void]");
 
             console.log("Position before: " + positionBefore);
             console.log("Limit before: " + limitBefore);
@@ -962,16 +994,14 @@ Java.perform(function () {
 
             duplicate.get(aad); // Copy bytes from duplicate to aad
 
-            console.log("AAD (HEX): " + bytesToHex(aad, 256));
-            console.log("AAD (ASCII): " + bytesToString(aad));
-
-            updateaadKey.call(this, src);
+            console.log("AAD (HEX): " + bytesToHex(aad, maxPrintableLength));
+            console.log("AAD (ASCII): " + bytesToString(aad, maxPrintableLength));
 
             console.log("Position after: " + src.position());
             console.log("Limit after: " + src.limit());
             console.log("Remaining after: " + src.remaining());
 
-            //traceStack();
+            traceStack();
         };
     } catch(e) {
         console.log("[+] Error message: " + e.message);
@@ -986,23 +1016,23 @@ Java.perform(function () {
         );
 
         wrapKey.implementation = function (key) {
+            const wrappedKey = wrapKey.call(this, key);
+
             console.log("1. [Cipher.wrap(java.security.Key) -> byte[]]");
             console.log("Cipher transformation: " + this.getAlgorithm());
 
             logKey(key);
 
-            const wrappedKey = wrapKey.call(this, key);
+            console.log("Wrapped key (HEX): " + bytesToHex(wrappedKey, maxPrintableLength));
 
-            console.log("Wrapped key (HEX): " + bytesToHex(wrappedKey, 256));
-
-            //traceStack();
+            traceStack();
 
             return wrappedKey;
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
     }
-    
+
     //  -------------------------
     // | Cipher.unwrap overloads |
     //  -------------------------
@@ -1014,24 +1044,24 @@ Java.perform(function () {
         );
 
         unwrapKey.implementation = function (wrappedKey, wrappedKeyAlgorithm, wrappedKeyType) {
+            const unwrappedKey = unwrapKey.call(this, wrappedKey, wrappedKeyAlgorithm, wrappedKeyType);
+
             console.log("1. [Cipher.unwrap(byte[] wrappedKey, String wrappedKeyAlgorithm, int wrappedKeyType) -> Key]");
             console.log("Cipher transformation: " + this.getAlgorithm());
-            console.log("Wrapped key: " + bytesToHex(wrappedKey, 256));
+            console.log("Wrapped key: " + bytesToHex(wrappedKey, maxPrintableLength));
             console.log("Wrapped key algorithm: " + wrappedKeyAlgorithm.toString());
             console.log("Wrapped key type: " + wrappedKeyTypeToString(wrappedKeyType) + " (" + wrappedKeyType + ")");
 
-            const unwrappedKey = unwrapKey.call(this, wrappedKey, wrappedKeyAlgorithm, wrappedKeyType);
-
             logKey(unwrappedKey);
 
-            //traceStack();
+            traceStack();
 
             return unwrappedKey;
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
     }
-    
+
     //  ------------------
     // | Base64 overloads |
     //  ------------------
@@ -1047,19 +1077,19 @@ Java.perform(function () {
         );
 
         encodeKey.implementation = function(input, flags) {
+            const encodedString = encodeKey.call(this, input, flags);
+
             let flagString = base64FlagsToString(flags);
 
             console.log("1. [Base64.encode(byte[] input, int flags) -> byte[]]");
-            console.log("Input (HEX): " + bytesToHex(input, 256));
-            console.log("Input (ASCII): " + bytesToString(input));
+            console.log("Input (HEX): " + bytesToHex(input, maxPrintableLength));
+            console.log("Input (ASCII): " + bytesToString(input, maxPrintableLength));
             console.log("Input length: " + input.length);
             console.log("Flags (Numerical): " + flags);
             console.log("Flags (String): " + flagString);
 
-            const encodedString = encodeKey.call(this, input, flags);
-
-            console.log("Encoded string (HEX): " + bytesToHex(encodedString, 256));
-            console.log("Encoded string (ASCII): " + bytesToString(encodedString));
+            console.log("Encoded string (HEX): " + bytesToHex(encodedString, maxPrintableLength));
+            console.log("Encoded string (ASCII): " + bytesToString(encodedString, maxPrintableLength));
             console.log("Encoded string length: " + encodedString.length);
 
             //traceStack();
@@ -1079,21 +1109,21 @@ Java.perform(function () {
         );
 
         encodeKey.implementation = function(input, offset, len, flags) {
+            const encodedString = encodeKey.call(this, input, offset, len, flags);
+
             let flagString = base64FlagsToString(flags);
 
             console.log("2. [Base64.encode(byte[input, int offset, int len, int flags]) -> byte[]]");
-            console.log("Input (HEX): " + bytesToHexRange(input, offset, len));
-            console.log("Input (ASCII): " + bytesToStringRange(input, offset, len));
+            console.log("Input (HEX): " + bytesToHexRange(input, offset, len, maxPrintableLength));
+            console.log("Input (ASCII): " + bytesToStringRange(input, offset, len, maxPrintableLength));
             console.log("Input length: " + input.length);
             console.log("Input offset: " + offset);
             console.log("Input length: " + len);
             console.log("Flags (Numerical): " + flags);
             console.log("Flags (String): " + flagString);
 
-            const encodedString = encodeKey.call(this, input, offset, len, flags);
-
-            console.log("Encoded string (HEX): " + bytesToHex(encodedString, 256));
-            console.log("Encoded string (ASCII): " + bytesToString(encodedString));
+            console.log("Encoded string (HEX): " + bytesToHex(encodedString, maxPrintableLength));
+            console.log("Encoded string (ASCII): " + bytesToString(encodedString, maxPrintableLength));
             console.log("Encoded string length: " + encodedString.length);
 
             //traceStack();
@@ -1114,16 +1144,16 @@ Java.perform(function () {
         );
 
         encodeKey.implementation = function(input, flags) {
+            const encodedString = encodeKey.call(this, input, flags);
+
             let flagString = base64FlagsToString(flags);
 
             console.log("1. [Base64.encodeToString(byte[] input, int flags) -> java.lang.String]");
-            console.log("Input (HEX): " + bytesToHex(input, 256));
-            console.log("Input (ASCII): " + bytesToString(input));
+            console.log("Input (HEX): " + bytesToHex(input, maxPrintableLength));
+            console.log("Input (ASCII): " + bytesToString(input, maxPrintableLength));
             console.log("Input length: " + input.length);
             console.log("Flags (Numerical): " + flags);
             console.log("Flags (String): " + flagString);
-
-            const encodedString = encodeKey.call(this, input, flags);
 
             console.log("Encoded string: " + encodedString);
             console.log("Encoded string length: " + encodedString.length);
@@ -1145,18 +1175,18 @@ Java.perform(function () {
         );
 
         encodeKey.implementation = function(input, offset, len, flags) {
+            const encodedString = encodeKey.call(this, input, offset, len, flags);
+
             let flagString = base64FlagsToString(flags);
 
             console.log("2. [Base64.encodeToString(byte[] input, int offset, int len, int flags]) -> java.lang.String]");
-            console.log("Input (HEX): " + bytesToHexRange(input, offset, len));
-            console.log("Input (ASCII): " + bytesToStringRange(input, offset, len));
+            console.log("Input (HEX): " + bytesToHexRange(input, offset, len, maxPrintableLength));
+            console.log("Input (ASCII): " + bytesToStringRange(input, offset, len, maxPrintableLength));
             console.log("Input length: " + input.length);
             console.log("Input offset: " + offset);
             console.log("Input length: " + len);
             console.log("Flags (Numerical): " + flags);
             console.log("Flags (String): " + flagString);
-
-            const encodedString = encodeKey.call(this, input, offset, len, flags);
 
             console.log("Encoded string: " + encodedString);
             console.log("Encoded string length: " + encodedString.length);
@@ -1179,6 +1209,8 @@ Java.perform(function () {
         );
 
         decodeKey.implementation = function (str, flags) {
+            const decodedString = decodeKey.call(this, str, flags);
+
             let flagString = base64FlagsToString(flags);
 
             console.log("1. [Base64.decode(java.lang.String str, int flags) -> byte[]]");
@@ -1186,10 +1218,8 @@ Java.perform(function () {
             console.log("Flags (Numerical): " + flags);
             console.log("Flags (String): " + flagString);
 
-            const decodedString = decodeKey.call(this, str, flags);
-
-            console.log("Decoded output (HEX): " + bytesToHex(decodedString, 256));
-            console.log("Decoded output (ASCII): " + bytesToString(decodedString));
+            console.log("Decoded output (HEX): " + bytesToHex(decodedString, maxPrintableLength));
+            console.log("Decoded output (ASCII): " + bytesToString(decodedString, maxPrintableLength));
 
             //traceStack();
 
@@ -1198,7 +1228,7 @@ Java.perform(function () {
     } catch (e) {
         console.log("[+] Error message: " + e.message);
     }
-    
+
     try { // 2. [Base64.decode(byte[] input, int flags) -> byte[]]
         const decodeKey = Base64.decode.overload(
             "[B",
@@ -1206,18 +1236,18 @@ Java.perform(function () {
         );
 
         decodeKey.implementation = function (input, flags) {
+            const decodedString = decodeKey.call(this, input, flags);
+
             let flagString = base64FlagsToString(flags);
 
             console.log("2. [Base64.decode(byte[] input, int flags) -> byte[]]");
-            console.log("Encoded input (HEX): " + bytesToHex(input, 256));
-            console.log("Encoded input (ASCII): " + bytesToString(input));
-            //console.log("Flags (Numerical): " + flags);
+            console.log("Encoded input (HEX): " + bytesToHex(input, maxPrintableLength));
+            console.log("Encoded input (ASCII): " + bytesToString(input, maxPrintableLength));
+            console.log("Flags (Numerical): " + flags);
             console.log("Flags (String): " + flagString);
 
-            const decodedString = decodeKey.call(this, input, flags);
-
-            console.log("Decoded output (HEX): " + bytesToHex(decodedString, 256));
-            console.log("Decoded output (ASCII): " + bytesToString(decodedString));
+            console.log("Decoded output (HEX): " + bytesToHex(decodedString, maxPrintableLength));
+            console.log("Decoded output (ASCII): " + bytesToString(decodedString, maxPrintableLength));
 
             //traceStack();
 
@@ -1236,18 +1266,18 @@ Java.perform(function () {
         );
 
         decodeKey.implementation = function (input, offset, len, flags) {
+            const decodedString = decodeKey.call(this, input, offset, len, flags);
+
             let flagString = base64FlagsToString(flags);
 
             console.log("3. [Base64.decode(byte[] input, int offset, int len, int flags) -> byte[]]");
-            console.log("Encoded input (HEX): " + bytesToHexRange(input, offset, len));
-            console.log("Encoded input (ASCII): " + bytesToStringRange(input, offset, len));
+            console.log("Encoded input (HEX): " + bytesToHexRange(input, offset, len, maxPrintableLength));
+            console.log("Encoded input (ASCII): " + bytesToStringRange(input, offset, len, maxPrintableLength));
             console.log("Flags (Numerical): " + flags);
             console.log("Flags (String): " + flagString);
 
-            const decodedString = decodeKey.call(this, input, offset, len, flags);
-
-            console.log("Decoded output (HEX): " + bytesToHex(decodedString, 256));
-            console.log("Decoded output (ASCII): " + bytesToString(decodedString));
+            console.log("Decoded output (HEX): " + bytesToHex(decodedString, maxPrintableLength));
+            console.log("Decoded output (ASCII): " + bytesToString(decodedString, maxPrintableLength));
 
             //traceStack();
 
@@ -1256,7 +1286,7 @@ Java.perform(function () {
     } catch (e) {
         console.log("[+] Error message: " + e.message);
     }
-    
+
     //  -------------------------
     // | SecretKeySpec overloads |
     //  -------------------------
@@ -1272,19 +1302,19 @@ Java.perform(function () {
         );
 
         initKeySpec.implementation = function (key, algorithm) {
+            initKeySpec.call(this, key, algorithm);
+
             console.log("1. [SecretKeySpec.$init(byte[] key, String algorithm) -> void]");
-            console.log("Key: " + bytesToHex(key, 256));
+            console.log("Key: " + bytesToHex(key, maxPrintableLength));
             console.log("Algorithm: " + algorithm);
 
-            initKeySpec.call(this, key, algorithm);
-            
             console.log("getAlgorithm(): " + this.getAlgorithm());
             console.log("getFormat(): " + this.getFormat());
 
             const encoded = this.getEncoded();
             console.log("getEncoded() length: " + encoded.length);
 
-            //traceStack();
+            traceStack();
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -1299,21 +1329,21 @@ Java.perform(function () {
         );
 
         initKeySpec.implementation = function (key, offset, len, algorithm) {
+            initKeySpec.call(this, key, offset, len, algorithm);
+
             console.log("2. [SecretKeySpec.$init(byte[] key, int offset, int len, String algorithm) -> void]");
-            console.log("Key: " + bytesToHex(key, 256));
+            console.log("Key: " + bytesToHex(key, maxPrintableLength));
             console.log("Offset: " + offset);
             console.log("Length: " + len);
             console.log("Algorithm: " + algorithm);
 
-            initKeySpec.call(this, key, offset, len, algorithm);
-            
             console.log("getAlgorithm(): " + this.getAlgorithm());
             console.log("getFormat(): " + this.getFormat());
 
             const encoded = this.getEncoded();
             console.log("getEncoded() length: " + encoded.length);
 
-            //traceStack();
+            traceStack();
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -1333,17 +1363,17 @@ Java.perform(function () {
         );
 
         initIvKey.implementation = function (iv) {
-            console.log("1. [IvParameterSpec(byte[] iv) -> void]");
-            console.log("IV: " + bytesToHex(iv, 256));
-
             initIvKey.call(this, iv);
+
+            console.log("1. [IvParameterSpec(byte[] iv) -> void]");
+            console.log("IV: " + bytesToHex(iv, maxPrintableLength));
 
             const storedIv = this.getIV();
 
             console.log("Constructed IV length: " + storedIv.length);
-            console.log("Constructed IV: " + bytesToHex(storedIv, 256));
+            console.log("Constructed IV: " + bytesToHex(storedIv, maxPrintableLength));
 
-            //traceStack();
+            traceStack();
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -1357,19 +1387,19 @@ Java.perform(function () {
         );
 
         initIvKey.implementation = function (iv, offset, len) {
+            initIvKey.call(this, iv, offset, len);
+
             console.log("2. [IvParameterSpec(byte[] iv, int offset, int len) -> void]");
-            console.log("IV: " + bytesToHex(iv, 256));
+            console.log("IV: " + bytesToHex(iv, maxPrintableLength));
             console.log("Offset: " + offset);
             console.log("Length: " + len);
-
-            initIvKey.call(this, iv, offset, len);
 
             const storedIv = this.getIV();
 
             console.log("Constructed IV length: " + storedIv.length);
-            console.log("Constructed IV: " + bytesToHexRange(storedIv, offset, len));
+            console.log("Constructed IV: " + bytesToHexRange(storedIv, offset, len, maxPrintableLength));
 
-            //traceStack();
+            traceStack();
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
