@@ -39,12 +39,11 @@ function bytesToHex(bytes, maxLength) {
 
 function bytesToHexRange(bytes, offset, length, maxLength) {
     let result = "";
-    const end = Math.min(offset + length, bytes.length);
 
     // A limit of 0 (or no limit) means the whole array. Never iterate past
     // the actual array length when the requested limit is larger than it.
     const hasLimit = typeof maxLength === "number" && maxLength > 0;
-    const len = hasLimit ? Math.min(maxLength, end) : end;
+    const len = hasLimit ? Math.min(maxLength, length) : length;
 
     for (let i = offset; i < len; i++) {
         let v = bytes[i];
@@ -99,12 +98,11 @@ function bytesToString(bytes, maxLength) {
 
 function bytesToStringRange(bytes, offset, length, maxLength) {
     let result = '';
-    const end = Math.min(offset + length, bytes.length);
 
     // A limit of 0 (or no limit) means the whole array. Never iterate past
     // the actual array length when the requested limit is larger than it.
     const hasLimit = typeof maxLength === "number" && maxLength > 0;
-    const len = hasLimit ? Math.min(maxLength, end) : end;
+    const len = hasLimit ? Math.min(maxLength, length) : length;
 
     for (let i = offset; i < len; ++i) {
         let val = bytes[i] & 0xFF;  // Get unsigned byte value
@@ -274,9 +272,9 @@ Java.perform(function () {
         );
 
         initKey.implementation = function (opmode, certificate) {
-            const lines = [];
-
             initKey.call(this, opmode, certificate);
+            
+            const lines = [];
 
             lines.push("1. [Cipher.init(int opmode, Certificate certificate) -> void]");
             lines.push("Algorithm: " + this.getAlgorithm());
@@ -285,7 +283,7 @@ Java.perform(function () {
             lines.push("Certificate type: " + certificate.getType());
             lines.push("Public key: " + certificate.getPublicKey());
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
         };
@@ -313,7 +311,7 @@ Java.perform(function () {
             lines.push("Public key: " + certificate.getPublicKey());
             lines.push("SecureRandom: " + random);
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
         };
@@ -338,7 +336,7 @@ Java.perform(function () {
 
             lines.push(logKey(key));
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
         };
@@ -365,7 +363,7 @@ Java.perform(function () {
             lines.push(logKey(key));
             lines.push(logAlgorithmParameters(params));
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
         };
@@ -392,7 +390,7 @@ Java.perform(function () {
             lines.push(logKey(key));
             lines.push(logAlgorithmParameterSpec(params));
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
         };
@@ -422,7 +420,7 @@ Java.perform(function () {
 
             lines.push("SecureRandom: " + random);
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
         };
@@ -452,7 +450,7 @@ Java.perform(function () {
 
             lines.push("SecureRandom: " + random);
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
         };
@@ -480,7 +478,7 @@ Java.perform(function () {
 
             lines.push("SecureRandom: " + random);
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
         };
@@ -511,7 +509,7 @@ Java.perform(function () {
                 lines.push("Output: <none>");
             }
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -545,7 +543,7 @@ Java.perform(function () {
                 lines.push("Output: <none>");
             }
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -581,7 +579,7 @@ Java.perform(function () {
                 lines.push("Output: <none>");
             }
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -619,7 +617,7 @@ Java.perform(function () {
                 lines.push("Output: <none>");
             }
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -650,7 +648,7 @@ Java.perform(function () {
                 lines.push("Output: <none>");
             }
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -679,7 +677,7 @@ Java.perform(function () {
                 lines.push("Output: <null>");
             }
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -709,7 +707,7 @@ Java.perform(function () {
                 lines.push("Output: <null>");
             }
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -739,7 +737,7 @@ Java.perform(function () {
                 lines.push("Output: <none>");
             }
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -773,7 +771,7 @@ Java.perform(function () {
                 lines.push("Output: <null>");
             }
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -804,7 +802,7 @@ Java.perform(function () {
                 lines.push("Output: <none>");
             }
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -836,7 +834,7 @@ Java.perform(function () {
                 lines.push("Output: <none>");
             }
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -869,7 +867,7 @@ Java.perform(function () {
                 lines.push("Output: <none>");
             }
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -911,7 +909,7 @@ Java.perform(function () {
                 lines.push("Provider class: " + provider.getClass().getName());
             }
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -952,7 +950,7 @@ Java.perform(function () {
                 lines.push("Provider class: " + cipherProvider.getClass().getName());
             }
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -991,7 +989,7 @@ Java.perform(function () {
                 lines.push("Provider class: " + provider.getClass().getName());
             }
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -1017,7 +1015,7 @@ Java.perform(function () {
             lines.push("Source bytes (HEX): " + bytesToHex(src, maxPrintableLength));
             lines.push("Source bytes (ASCII): " + bytesToString(src, maxPrintableLength));
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
         };
@@ -1045,7 +1043,7 @@ Java.perform(function () {
             lines.push("AAD (HEX): " + bytesToHex(aadSlice, maxPrintableLength));
             lines.push("AAD (ASCII): " + bytesToString(aadSlice, maxPrintableLength));
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
         };
@@ -1089,7 +1087,7 @@ Java.perform(function () {
             lines.push("Limit after: " + src.limit());
             lines.push("Remaining after: " + src.remaining());
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
         };
@@ -1116,7 +1114,7 @@ Java.perform(function () {
 
             lines.push("Wrapped key (HEX): " + bytesToHex(wrappedKey, maxPrintableLength));
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -1148,7 +1146,7 @@ Java.perform(function () {
 
             logKey(unwrappedKey);
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -1189,7 +1187,7 @@ Java.perform(function () {
             lines.push("Encoded string (ASCII): " + bytesToString(encodedString, maxPrintableLength));
             lines.push("Encoded string length: " + encodedString.length);
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -1226,7 +1224,7 @@ Java.perform(function () {
             lines.push("Encoded string (ASCII): " + bytesToString(encodedString, maxPrintableLength));
             lines.push("Encoded string length: " + encodedString.length);
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -1261,7 +1259,7 @@ Java.perform(function () {
             lines.push("Encoded string: " + encodedString);
             lines.push("Encoded string length: " + encodedString.length);
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -1297,7 +1295,7 @@ Java.perform(function () {
             lines.push("Encoded string: " + encodedString);
             lines.push("Encoded string length: " + encodedString.length);
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -1330,7 +1328,7 @@ Java.perform(function () {
             lines.push("Decoded output (HEX): " + bytesToHex(decodedString, maxPrintableLength));
             lines.push("Decoded output (ASCII): " + bytesToString(decodedString, maxPrintableLength));
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -1361,7 +1359,7 @@ Java.perform(function () {
             lines.push("Decoded output (HEX): " + bytesToHex(decodedString, maxPrintableLength));
             lines.push("Decoded output (ASCII): " + bytesToString(decodedString, maxPrintableLength));
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -1394,7 +1392,7 @@ Java.perform(function () {
             lines.push("Decoded output (HEX): " + bytesToHex(decodedString, maxPrintableLength));
             lines.push("Decoded output (ASCII): " + bytesToString(decodedString, maxPrintableLength));
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -1432,7 +1430,7 @@ Java.perform(function () {
             const encoded = this.getEncoded();
             lines.push("getEncoded() length: " + encoded.length);
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -1465,7 +1463,7 @@ Java.perform(function () {
             const encoded = this.getEncoded();
             lines.push("getEncoded() length: " + encoded.length);
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
 
@@ -1499,7 +1497,7 @@ Java.perform(function () {
             lines.push("Constructed IV length: " + storedIv.length);
             lines.push("Constructed IV: " + bytesToHex(storedIv, maxPrintableLength));
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
         };
@@ -1528,7 +1526,242 @@ Java.perform(function () {
             lines.push("Constructed IV length: " + storedIv.length);
             lines.push("Constructed IV: " + bytesToHexRange(storedIv, offset, len, maxPrintableLength));
 
-            lines.push(traceStack());
+            //lines.push(traceStack());
+
+            console.log(lines.join("\n"));
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    //  -------------------------
+    // | MessageDigest overloads |
+    //  -------------------------
+    const MessageDigest = Java.use("java.security.MessageDigest");
+
+    //  ---------------------------------------
+    // | MessageDigest.getInstance() overloads |
+    //  ---------------------------------------
+    try { // 1. [MessageDigest.getInstance(String algorithm) -> static MessageDigest]
+        const digestKey = MessageDigest.getInstance.overload(
+            "java.lang.String"
+        );
+
+        digestKey.implementation = function (algorithm) {
+            const result = digestKey.call(MessageDigest, algorithm);
+            const lines = [];
+
+            lines.push("1. [MessageDigest.getInstance(String algorithm) -> static MessageDigest]");
+            lines.push("Algorithm: " + algorithm);
+            lines.push("Object (returned): " + result);
+            lines.push("Algorithm (returned): " + result.getAlgorithm());
+            lines.push("Provider: " + result.getProvider());
+            lines.push("Digest length: " + result.getDigestLength());
+
+            //lines.push(traceStack());
+
+            console.log(lines.join("\n"));
+
+            return result;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 2. [MessageDigest.getInstance(String algorithm, Provider provider) -> static MessageDigest]
+        const digestKey = MessageDigest.getInstance.overload(
+            "java.lang.String",
+            "java.security.Provider"
+        );
+
+        digestKey.implementation = function (algorithm, provider) {
+            const result = digestKey.call(MessageDigest, algorithm, provider);
+            const lines = [];
+
+            lines.push("2. [MessageDigest.getInstance(String algorithm, Provider provider) -> static MessageDigest]");
+            lines.push("Algorithm: " + algorithm);
+            lines.push("Object (returned): " + result);
+            lines.push("Algorithm (returned): " + result.getAlgorithm());
+            lines.push("Provider: " + provider);
+            lines.push("Digest length: " + result.getDigestLength());
+
+            //lines.push(traceStack());
+
+            console.log(lines.join("\n"));
+
+            return result;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 3. [MessageDigest.getInstance(String algorithm, String provider) -> static MessageDigest]
+        const digestKey = MessageDigest.getInstance.overload(
+            "java.lang.String",
+            "java.lang.String"
+        );
+
+        digestKey.implementation = function (algorithm, provider) {
+            const result = digestKey.call(MessageDigest, algorithm, provider);
+            const lines = [];
+
+            lines.push("3. [MessageDigest.getInstance(String algorithm, String provider) -> static MessageDigest]");
+            lines.push("Algorithm: " + algorithm);
+            lines.push("Object (returned): " + result);
+            lines.push("Algorithm (returned): " + result.getAlgorithm());
+            lines.push("Provider: " + provider.toString());
+            lines.push("Digest length: " + result.getDigestLength());
+
+            //lines.push(traceStack());
+
+            console.log(lines.join("\n"));
+
+            return result;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+    
+    //  ----------------------------------
+    // | MessageDigest.digest() overloads |
+    //  ----------------------------------
+    try { // 1. [MessageDigest.digest() -> byte[]]
+        const digestKey = MessageDigest.digest.overload();
+
+        digestKey.implementation = function() {
+            const result = digestKey.call(this);
+            const lines = [];
+
+            lines.push("1. [MessageDigest.digest() -> byte[]]");
+            lines.push("Digested hash: " + bytesToHex(result, maxPrintableLength));
+
+            //lines.push(traceStack());
+
+            console.log(lines.join("\n"));
+
+            return result;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 2. [MessageDigest.digest(byte[] input) -> byte[]]
+        const digestKey = MessageDigest.digest.overload(
+            "[B"
+        );
+
+        digestKey.implementation = function(input) {
+            const result = digestKey.call(this, input);
+            const lines = [];
+
+            lines.push("2. [MessageDigest.digest(byte[] input) -> byte[]]");
+            lines.push("Input (HEX): " + bytesToHex(input, maxPrintableLength));
+            lines.push("Input (ASCII): " + bytesToString(input, maxPrintableLength));
+            lines.push("Digested hash: " + bytesToHex(result, maxPrintableLength));
+
+            //lines.push(traceStack());
+
+            console.log(lines.join("\n"));
+
+            return result;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 3. [MessageDigest.digest(byte[] input, int offset, int len) -> int]
+        const digestKey = MessageDigest.digest.overload(
+            "[B",
+            "int",
+            "int"
+        );
+
+        digestKey.implementation = function(outputBuf, offset, len) {
+            const result = digestKey.call(this, outputBuf, offset, len);
+            const lines = [];
+
+            lines.push("3. [MessageDigest.digest(byte[] input, int offset, int len) -> int]");
+            lines.push("Offset: " + offset);
+            lines.push("Length: " + len);
+            lines.push("Bytes written: " + result);
+            lines.push("Digested hash: " + bytesToHexRange(outputBuf, offset, len, maxPrintableLength));
+
+            //lines.push(traceStack());
+
+            console.log(lines.join("\n"));
+
+            return result;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    //  ----------------------------------
+    // | MessageDigest.update() overloads |
+    //  ----------------------------------
+    try { // 1. [MessageDigest.update(byte input) -> void]
+        const digestKey = MessageDigest.update.overload(
+            "byte"
+        );
+
+        digestKey.implementation = function(input) {
+            digestKey.call(this, input);
+
+            const lines = [];
+
+            lines.push("1. [MessageDigest.update(byte input) -> void]");
+            lines.push("Input byte (HEX): " + bytesToHex(input, maxPrintableLength));
+            lines.push("Input byte (ASCII): " + bytesToString(input, maxPrintableLength));
+
+            //lines.push(traceStack());
+
+            console.log(lines.join("\n"));
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+    
+    try { // 2. [MessageDigest.update(byte[] input) -> void]
+        const digestKey = MessageDigest.update.overload(
+            "[B"
+        );
+
+        digestKey.implementation = function(input) {
+            digestKey.call(this, input);
+
+            const lines = [];
+
+            lines.push("2. [MessageDigest.update(byte[] input) -> void]");
+            lines.push("Input bytes (HEX): " + bytesToHex(input, maxPrintableLength));
+            lines.push("Input bytes (ASCII): " + bytesToString(input, maxPrintableLength));
+
+            //lines.push(traceStack());
+
+            console.log(lines.join("\n"));
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+    
+    try { // 3. [MessageDigest.update(byte[] input, int offset, int len) -> void]
+        const digestKey = MessageDigest.update.overload(
+            "[B",
+            "int",
+            "int"
+        );
+
+        digestKey.implementation = function(input, offset, len) {
+            digestKey.call(this, input, offset, len);
+
+            const lines = [];
+
+            lines.push("3. [MessageDigest.update(byte[] input, int offset, int len) -> void]");
+            lines.push("Offset (start position): " + offset);
+            lines.push("Number of bytes to use from offset: " + len);
+            lines.push("Input byte array (HEX): " + bytesToHexRange(input, offset, len, maxPrintableLength));
+            lines.push("Input byte array (ASCII): " + bytesToString(input, offset, len, maxPrintableLength));
+
+            //lines.push(traceStack());
 
             console.log(lines.join("\n"));
         };
