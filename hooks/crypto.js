@@ -45,7 +45,7 @@ function bytesToHexRange(bytes, offset, length, maxLength) {
     const hasLimit = typeof maxLength === "number" && maxLength > 0;
     const len = hasLimit ? Math.min(maxLength, length) : length;
 
-    for (let i = offset; i < len; i++) {
+    for (let i = offset; i < (offset + len); i++) {
         let v = bytes[i];
 
         if (v < 0)
@@ -104,7 +104,7 @@ function bytesToStringRange(bytes, offset, length, maxLength) {
     const hasLimit = typeof maxLength === "number" && maxLength > 0;
     const len = hasLimit ? Math.min(maxLength, length) : length;
 
-    for (let i = offset; i < len; ++i) {
+    for (let i = offset; i < (offset + len); ++i) {
         let val = bytes[i] & 0xFF;  // Get unsigned byte value
         // Only convert printable ASCII characters (32-126); otherwise, use a placeholder (.)
         if (val === 10) {
@@ -670,7 +670,7 @@ Java.perform(function () {
 
             lines.push("1. [Cipher.doFinal() -> byte[]]")
 
-            if (result !== null) {
+            if (output !== null) {
                 lines.push("Output (HEX): " + bytesToHex(output, maxPrintableLength));
                 lines.push("Output (ASCII): " + bytesToString(output, maxPrintableLength));
             } else {
@@ -782,7 +782,12 @@ Java.perform(function () {
     }
 
     try { // 5. [Cipher.doFinal(byte[] input, int inputOffset, int inputLen, byte[] output) -> int]
-        const finalKey = Cipher.doFinal.overload();
+        const finalKey = Cipher.doFinal.overload(
+            "[B",
+            "int",
+            "int",
+            "[B"
+        );
 
         finalKey.implementation = function (input, inputOffset, inputLen, output) {
             const outputLen = finalKey.call(this, input, inputOffset, inputLen, output);
@@ -813,7 +818,13 @@ Java.perform(function () {
     }
 
     try { // 6. [Cipher.doFinal(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]
-        const finalKey = Cipher.doFinal.overload();
+        const finalKey = Cipher.doFinal.overload(
+            "[B",
+            "int",
+            "int",
+            "[B",
+            "int"
+        );
 
         finalKey.implementation = function (input, inputOffset, inputLen, output, outputOffset) {
             const outputLen = finalKey.call(this, input, inputOffset, inputLen, output, outputOffset);
@@ -1256,7 +1267,7 @@ Java.perform(function () {
             lines.push("Flags (Numerical): " + flags);
             lines.push("Flags (String): " + flagString);
 
-            lines.push("Encoded string: " + encodedString);
+            lines.push("Encoded string: " + bytesToString(encodedString, maxPrintableLength));
             lines.push("Encoded string length: " + encodedString.length);
 
             //lines.push(traceStack());
@@ -1292,7 +1303,7 @@ Java.perform(function () {
             lines.push("Flags (Numerical): " + flags);
             lines.push("Flags (String): " + flagString);
 
-            lines.push("Encoded string: " + encodedString);
+            lines.push("Encoded string: " + bytesToString(encodedString, maxPrintableLength));
             lines.push("Encoded string length: " + encodedString.length);
 
             //lines.push(traceStack());
@@ -1669,7 +1680,7 @@ Java.perform(function () {
         console.log("[+] Error message: " + e.message);
     }
 
-    try { // 3. [MessageDigest.digest(byte[] input, int offset, int len) -> int]
+    try { // 3. [MessageDigest.digest(byte[] buf, int offset, int len) -> int]
         const digestKey = MessageDigest.digest.overload(
             "[B",
             "int",
@@ -1680,11 +1691,11 @@ Java.perform(function () {
             const result = digestKey.call(this, outputBuf, offset, len);
             const lines = [];
 
-            lines.push("3. [MessageDigest.digest(byte[] input, int offset, int len) -> int]");
+            lines.push("3. [MessageDigest.digest(byte[] buf, int offset, int len) -> int]");
             lines.push("Offset: " + offset);
-            lines.push("Length: " + len);
+            lines.push("Allocated bytes in buffer: " + len);
             lines.push("Bytes written: " + result);
-            lines.push("Digested hash: " + bytesToHexRange(outputBuf, offset, len, maxPrintableLength));
+            lines.push("Digested hash: " + bytesToHexRange(outputBuf, offset, result, maxPrintableLength));
 
             //lines.push(traceStack());
 
@@ -1710,8 +1721,7 @@ Java.perform(function () {
             const lines = [];
 
             lines.push("1. [MessageDigest.update(byte input) -> void]");
-            lines.push("Input byte (HEX): " + bytesToHex(input, maxPrintableLength));
-            lines.push("Input byte (ASCII): " + bytesToString(input, maxPrintableLength));
+            lines.push("Input byte: " + input);
 
             //lines.push(traceStack());
 
@@ -1759,11 +1769,228 @@ Java.perform(function () {
             lines.push("Offset (start position): " + offset);
             lines.push("Number of bytes to use from offset: " + len);
             lines.push("Input byte array (HEX): " + bytesToHexRange(input, offset, len, maxPrintableLength));
-            lines.push("Input byte array (ASCII): " + bytesToString(input, offset, len, maxPrintableLength));
+            lines.push("Input byte array (ASCII): " + bytesToStringRange(input, offset, len, maxPrintableLength));
 
             //lines.push(traceStack());
 
             console.log(lines.join("\n"));
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    //  ---------------
+    // | Mac overloads |
+    //  ---------------
+    const Mac = Java.use("javax.crypto.Mac");
+
+    //  ----------------------
+    // | Mac.init() overloads |
+    //  ----------------------
+    try { // 1. [Mac.init(Key key) -> void]
+        const macKey = Mac.init.overload(
+            "java.security.Key"
+        );
+
+        macKey.implementation = function (key) {
+            macKey.call(this, key);
+
+            const lines = [];
+
+            lines.push("1. [Mac.init(Key key) -> void]");
+            lines.push("Provider: " + this.getProvider());
+            lines.push("Mac length: " + this.getMacLength());
+
+            lines.push(logKey(key));
+
+            //lines.push(traceStack());
+
+            console.log(lines.join("\n"));
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 2. [Mac.init(Key key, AlgorithmParameterSpec params) -> void]
+        const macKey = Mac.init.overload(
+            "java.security.Key",
+            "java.security.spec.AlgorithmParameterSpec"
+        );
+
+        macKey.implementation = function (key, params) {
+            macKey.call(this, key, params);
+
+            const lines = [];
+
+            lines.push("2. [Mac.init(Key key, AlgorithmParameterSpec params) -> void]");
+            lines.push("Algorithm: " + key.getAlgorithm());
+            lines.push("Provider: " + this.getProvider());
+            lines.push("Mac length: " + this.getMacLength());
+
+            lines.push(logKey(key));
+            lines.push(logAlgorithmParameterSpec(params));
+
+            //lines.push(traceStack());
+
+            console.log(lines.join("\n"));
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    //  ------------------------
+    // | Mac.update() overloads |
+    //  ------------------------
+    try { // 1. [Mac.update(byte input) -> void]
+        const macKey = Mac.update.overload(
+            "byte"
+        );
+
+        macKey.implementation = function(input) {
+            macKey.call(this, input);
+
+            const lines = [];
+
+            lines.push("1. [Mac.update(byte input) -> void]");
+            lines.push("Input byte: " + input);
+
+            //lines.push(traceStack());
+
+            console.log(lines.join("\n"));
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+    
+    try { // 2. [Mac.update(byte[] input) -> void]
+        const macKey = Mac.update.overload(
+            "[B"
+        );
+
+        macKey.implementation = function(input) {
+            macKey.call(this, input);
+
+            const lines = [];
+
+            lines.push("2. [Mac.update(byte[] input) -> void]");
+            lines.push("Input bytes (HEX): " + bytesToHex(input, maxPrintableLength));
+            lines.push("Input bytes (ASCII): " + bytesToString(input, maxPrintableLength));
+
+            //lines.push(traceStack());
+
+            console.log(lines.join("\n"));
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+    
+    try { // 3. [MessageDigest.update(byte[] input, int offset, int len) -> void]
+        const macKey = Mac.update.overload(
+            "[B",
+            "int",
+            "int"
+        );
+
+        macKey.implementation = function(input, offset, len) {
+            macKey.call(this, input, offset, len);
+
+            const lines = [];
+
+            lines.push("3. [Mac.update(byte[] input, int offset, int len) -> void]");
+            lines.push("Offset (start position): " + offset);
+            lines.push("Number of bytes to use from offset: " + len);
+            lines.push("Input byte array (HEX): " + bytesToHexRange(input, offset, len, maxPrintableLength));
+            lines.push("Input byte array (ASCII): " + bytesToStringRange(input, offset, len, maxPrintableLength));
+
+            //lines.push(traceStack());
+
+            console.log(lines.join("\n"));
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    //  -------------------------
+    // | Mac.doFinal() overloads |
+    //  -------------------------
+    try { // 1. [Mac.doFinal() -> byte[]]
+        const macKey = Mac.doFinal.overload();
+
+        macKey.implementation = function () {
+            const output = macKey.call(this);
+            const lines = [];
+
+            lines.push("1. [Mac.doFinal() -> byte[]]")
+
+            if (output !== null) {
+                lines.push("Output (HEX): " + bytesToHex(output, maxPrintableLength));
+                lines.push("Output (ASCII): " + bytesToString(output, maxPrintableLength));
+            } else {
+                lines.push("Output: <null>");
+            }
+
+            //lines.push(traceStack());
+
+            console.log(lines.join("\n"));
+
+            return output;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 2. [Mac.doFinal(byte[] input) -> byte[]]
+        const macKey = Mac.doFinal.overload(
+            "[B"
+        );
+
+        macKey.implementation = function (input) {
+            const output = macKey.call(this, input);
+            const lines = [];
+
+            lines.push("2. [Mac.doFinal(byte[] input) -> byte[]]")
+            lines.push("Input (HEX): " + bytesToHex(input, maxPrintableLength));
+            lines.push("Input (ASCII): " + bytesToString(input, maxPrintableLength));
+
+            if (output !== null) {
+                lines.push("Output (HEX): " + bytesToHex(output, maxPrintableLength));
+                lines.push("Output (ASCII): " + bytesToString(output, maxPrintableLength));
+            } else {
+                lines.push("Output: <null>");
+            }
+
+            //lines.push(traceStack());
+
+            console.log(lines.join("\n"));
+
+            return output;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 3. [Mac.doFinal(byte[] output, int outOffset) -> void]
+        const macKey = Mac.doFinal.overload(
+            "[B",
+            "int"
+        );
+
+        macKey.implementation = function (output, outputOffset) {
+            macKey.call(this, output, outputOffset);
+
+            const lines = [];
+
+            lines.push("3. [Mac.doFinal(byte[] output, int outputOffset) -> void]");
+
+            lines.push("Bytes written: " + output.length);
+            lines.push("Output (HEX): " + bytesToHexRange(output, outputOffset, output.length, maxPrintableLength));
+            lines.push("Output (ASCII): " + bytesToStringRange(output, outputOffset, output.length, maxPrintableLength));
+
+            //lines.push(traceStack());
+
+            console.log(lines.join("\n"));
+
+            return outputLen;
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
