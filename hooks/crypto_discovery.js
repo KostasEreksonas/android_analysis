@@ -38,6 +38,10 @@ function bytesToHex(bytes, maxLength) {
 }
 
 function bytesToHexRange(bytes, offset, length, maxLength) {
+    if (bytes === null || bytes === undefined) {
+        return "<null>";
+    }
+
     let result = "";
 
     // A limit of 0 (or no limit) means the whole array. Never iterate past
@@ -54,8 +58,8 @@ function bytesToHexRange(bytes, offset, length, maxLength) {
         result += ("0" + v.toString(16)).slice(-2);
     }
 
-    if (hasLimit && bytes.length > len) {
-        result += ` ... [${bytes.length - len} more bytes]`;
+    if (hasLimit && length > len) {
+        result += ` ... [${length - len} more bytes]`;
     }
 
     return result;
@@ -97,6 +101,10 @@ function bytesToString(bytes, maxLength) {
 }
 
 function bytesToStringRange(bytes, offset, length, maxLength) {
+    if (bytes === null || bytes === undefined) {
+        return "<null>";
+    }
+
     let result = '';
 
     // A limit of 0 (or no limit) means the whole array. Never iterate past
@@ -120,82 +128,75 @@ function bytesToStringRange(bytes, offset, length, maxLength) {
         }
     }
 
-    if (hasLimit && bytes.length > len) {
-        result += ` ... [${bytes.length - len} more bytes]`;
+    if (hasLimit && length > len) {
+        result += ` ... [${length - len} more bytes]`;
     }
 
     return result;
 }
 
-function logKey(key) {
+function logKey(state, key) {
     if (key === null)
         return;
 
-    let log = "";
-
-    log += "Key class: " + key.$className + "\n";
-    log += "Key algorithm: " + key.getAlgorithm() + "\n";
-    log += "Key format: " + key.getFormat() + "\n";
+    state.keyClass = key.$className;
+    state.keyAlgorithm = key.getAlgorithm();
+    state.keyFormat = key.getFormat();
 
     const encoded = key.getEncoded();
 
-    if (encoded !== null)
-        log += "Key bytes: " + bytesToHex(encoded, maxPrintableLength);
-
-    return log;
-}
-
-function logAlgorithmParameters(params) {
-    if (params === null)
-        return;
-
-    let log = "";
-
-    log += "Parameters class: " + params.$className + "\n";
-    log += "Parameters algorithm: " + params.getAlgorithm() + "\n";
-
-    try {
-        log += "Parameters encoded: " + bytesToHex(params.getEncoded(), maxPrintableLength);
-    } catch (e) {
-        log += "Could not encode parameters: " + e.message;
+    if (encoded !== null) {
+        state.keyBytes = bytesToHex(encoded, maxPrintableLength);
+    } else {
+        state.keyBytes = "<unavailable>";
     }
-
-    return log;
 }
 
-function logAlgorithmParameterSpec(params) {
+function logAlgorithmParameters(state, params) {
     if (params === null)
         return;
 
-    let log = "";
+    state.parameterClass = params.$className;
+    state.parameterAlgorithm = params.getAlgorithm();
 
-    log += "Parameter class: " + params.$className + "\n";
+    const encoded = params.getEncoded();
+
+    if (encoded !== null) {
+        state.parameterEncoded = bytesToHex(params.getEncoded(), maxPrintableLength);
+    } else {
+        state.parameterEncoded = "<undefined>";
+    }
+}
+
+function logAlgorithmParameterSpec(state, params) {
+    if (params === null)
+        return;
+
+    state.parameterClass = params.$className;
 
     if (params.$className === "javax.crypto.spec.IvParameterSpec") {
         const IvParameterSpec = Java.use("javax.crypto.spec.IvParameterSpec");
         const ivSpec = Java.cast(params, IvParameterSpec);
-        log += "IV: " + bytesToHex(ivSpec.getIV(), maxPrintableLength);
+        state.iv = bytesToHex(ivSpec.getIV(), maxPrintableLength);
     }
 
     if (params.$className === "javax.crypto.spec.GCMParameterSpec") {
         const GCMParameterSpec = Java.use("javax.crypto.spec.GCMParameterSpec");
         const gcm = Java.cast(params, GCMParameterSpec);
-        log += "IV/nonce: " + bytesToHex(gcm.getIV(), maxPrintableLength) + "\n";
-        log += "GCM tag bits: " + gcm.getTLen();
+        state.gcmIv = bytesToHex(gcm.getIV(), maxPrintableLength);
+        state.gcmTagBits = gcm.getTLen();
     }
-
-    return log;
 }
 
 function describeOpmode(opmode) {
     if (opmode === 1) {
-        return "opmode: " + opmode + " (ENCRYPT)";
+        return "ENCRYPT";
     } else if (opmode === 2) {
-        return "opmode: " + opmode + " (DECRYPT)";
+        return "DECRYPT";
     } else if (opmode === 3) {
-        return "opmode: " + opmode + " (UNWRAP)";
+        return "WRAP";
     } else if (opmode === 4) {
-        return "opmode: " + opmode + " (WRAP)";
+        return "UNWRAP";
     }
 }
 
@@ -253,1748 +254,1345 @@ function base64FlagsToString(flags) {
     return string;
 }
 
-//  ------------
-// | Main Logic |
-//  ------------
-setTimeout(function () {
-    Java.perform(function () {
-        //  ------------------
-        // | Cipher overloads |
-        //  ------------------
-        const Cipher = Java.use("javax.crypto.Cipher");
+function getObjectId(name, obj) {
+    if (obj === null || obj === undefined) {
+        return name + "-<null>";
+    }
 
-        //  -----------------------
-        // | Cipher.init overloads |
-        //  -----------------------
-        try { // 1. [Cipher.init(int opmode, Certificate certificate) -> void]
-            const initKey = Cipher.init.overload(
-                "int",
-                "java.security.cert.Certificate"
-            );
+    return name + "-" + obj.hashCode().toString();
+};
 
-            initKey.implementation = function (opmode, certificate) {
-                initKey.call(this, opmode, certificate);
-
-                const lines = [];
-
-                lines.push("1. [Cipher.init(int opmode, Certificate certificate) -> void]");
-                lines.push("Algorithm: " + this.getAlgorithm());
-                lines.push(describeOpmode(opmode));
-
-                lines.push("Certificate type: " + certificate.getType());
-                lines.push("Public key: " + certificate.getPublicKey());
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-            };
+function logging(state) {
+    const keys = Object.keys(state);
+    let final = "";
+    for (const key of keys) {
+        try {
+            final += key + ": " + state[key] + "\n";
         } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 2. [Cipher.init(int opmode, Certificate certificate, SecureRandom random) -> void]
-            const initKey = Cipher.init.overload(
-                "int",
-                "java.security.cert.Certificate",
-                "java.security.SecureRandom"
+            console.log(
+                "[!] FAILED FIELD: " + key +
+                " | type: " + typeof state[key] +
+                " | error: " + e
             );
-
-            initKey.implementation = function (opmode, certificate, random) {
-                const lines = [];
-
-                initKey.call(this, opmode, certificate, random);
-
-                lines.push("2. [Cipher.init(int opmode, Certificate certificate, SecureRandom random) -> void]");
-                lines.push("Algorithm: " + this.getAlgorithm());
-                lines.push(describeOpmode(opmode));
-
-                lines.push("Certificate type: " + certificate.getType());
-                lines.push("Public key: " + certificate.getPublicKey());
-                lines.push("SecureRandom: " + random);
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
         }
+    }
 
-        try { // 3. [Cipher.init(int opmode, Key key) -> void]
-            const initKey = Cipher.init.overload(
-                "int",
-                "java.security.Key"
-            );
+    console.log(final);
+}
 
-            initKey.implementation = function (opmode, key) {
-                const lines = [];
+Java.perform(function () {
+    const cipherStates = new Map();
+    const macStates = new Map();
 
-                initKey.call(this, opmode, key);
+    //  ------------------
+    // | Cipher overloads |
+    //  ------------------
+    const Cipher = Java.use("javax.crypto.Cipher");
 
-                lines.push("3. [Cipher.init(int opmode, Key key) -> void]");
-                lines.push("Algorithm: " + this.getAlgorithm());
-                lines.push(describeOpmode(opmode));
+    //  ------------------------------
+    // | Cipher.getInstance overloads |
+    //  ------------------------------
+    try {// 1. [Cipher.getInstance(java.lang.String) -> static Cipher]
+        const instanceKey = Cipher.getInstance.overload(
+            "java.lang.String"
+        );
 
-                lines.push(logKey(key));
+        instanceKey.implementation = function (transformation) {
+            const cipher = instanceKey.call(Cipher, transformation);
+            const provider = cipher.getProvider();
+            const objectId = getObjectId("Cipher", cipher);
 
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
+            const state = {
+                objectId: objectId,
+                timestamp: Date.now(),
+                instanceOverload: "[Cipher.getInstance(java.lang.String) -> static Cipher]",
+                transformation: transformation,
+                algorithm: cipher.getAlgorithm(),
+                runtimeClass: cipher.getClass().getName(),
+                providerName: provider.getName(),
+                providerVersion: provider.getVersion(),
+                providerInfo: provider.getInfo(),
+                providerClass: provider.getClass().getName(),
+                updateCount: 0
             };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
+
+            cipherStates.set(objectId, state);
+
+            return cipher;
         }
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
 
-        try { // 4. [Cipher.init(int opmode, Key key, AlgorithmParameters params) -> void]
-            const initKey = Cipher.init.overload(
-                "int",
-                "java.security.Key",
-                "java.security.AlgorithmParameters"
-            );
+    try { // 2. [Cipher.getInstance(java.lang.String, java.lang.String) -> static Cipher]
+        const instanceKey = Cipher.getInstance.overload(
+            "java.lang.String",
+            "java.lang.String"
+        );
 
-            initKey.implementation = function (opmode, key, params) {
-                const lines = [];
+        instanceKey.implementation = function (transformation, provider) {
+            const cipher = instanceKey.call(Cipher, transformation, provider);
+            const cipherProvider = cipher.getProvider();
+            const objectId = getObjectId("Cipher", cipher);
 
-                initKey.call(this, opmode, key, params);
-
-                lines.push("4. [Cipher.init(int opmode, Key key, AlgorithmParameters params) -> void]");
-                lines.push("Algorithm: " + this.getAlgorithm());
-                lines.push(describeOpmode(opmode));
-
-                lines.push(logKey(key));
-                lines.push(logAlgorithmParameters(params));
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
+            const state = {
+                objectId: objectId,
+                timestamp: Date.now(),
+                instanceOverload: "[Cipher.getInstance(java.lang.String, java.lang.String) -> static Cipher]",
+                transformation: transformation,
+                algorithm: cipher.getAlgorithm(),
+                runtimeClass: cipher.getClass().getName(),
+                providerName: cipherProvider.getName(),
+                providerVersion: cipherProvider.getVersion(),
+                providerInfo: cipherProvider.getInfo(),
+                providerClass: cipherProvider.getClass().getName(),
+                updateCount: 0
             };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
 
-        try { // 5. [Cipher.init(int opmode, Key key, AlgorithmParameterSpec params) -> void]
-            const initKey = Cipher.init.overload(
-                "int",
-                "java.security.Key",
-                "java.security.spec.AlgorithmParameterSpec"
-            );
+            cipherStates.set(objectId, state);
 
-            initKey.implementation = function (opmode, key, params) {
-                const lines = [];
+            return cipher;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
 
-                initKey.call(this, opmode, key, params);
+    try { // 3. [Cipher.getInstance(java.lang.String, java.security.Provider) -> static Cipher]
+        const instanceKey = Cipher.getInstance.overload(
+            "java.lang.String",
+            "java.security.Provider"
+        );
 
-                lines.push("5. [Cipher.init(int opmode, Key key, AlgorithmParameterSpec params) -> void]");
-                lines.push("Algorithm: " + this.getAlgorithm());
-                lines.push(describeOpmode(opmode));
+        instanceKey.implementation = function (transformation, provider) {
+            const cipher = instanceKey.call(Cipher, transformation, provider);
+            const objectId = getObjectId("Cipher", cipher);
 
-                lines.push(logKey(key));
-                lines.push(logAlgorithmParameterSpec(params));
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
+            const state = {
+                objectId: objectId,
+                timestamp: Date.now(),
+                instanceOverload: "[Cipher.getInstance(java.lang.String, java.security.Provider) -> static Cipher]",
+                transformation: transformation,
+                algorithm: cipher.getAlgorithm(),
+                runtimeClass: cipher.getClass().getName(),
+                providerName: provider.getName(),
+                providerVersion: provider.getVersion(),
+                providerInfo: provider.getInfo(),
+                providerClass: provider.getClass().getName(),
+                updateCount: 0
             };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
 
-        try { // 6. [Cipher.init(int opmode, Key key, AlgorithmParameterSpec params, SecureRandom random) -> void]
-            const initKey = Cipher.init.overload(
-                "int",
-                "java.security.Key",
-                "java.security.spec.AlgorithmParameterSpec",
-                "java.security.SecureRandom"
-            );
-
-            initKey.implementation = function (opmode, key, params, random) {
-                const lines = [];
-
-                initKey.call(this, opmode, key, params, random);
-
-                lines.push("6. [Cipher.init(int opmode, Key key, AlgorithmParameterSpec params, SecureRandom random) -> void]");
-                lines.push("Algorithm: " + this.getAlgorithm());
-                lines.push(describeOpmode(opmode));
-
-                lines.push(logKey(key));
-                lines.push(logAlgorithmParameterSpec(params));
-
-                lines.push("SecureRandom: " + random);
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 7. [Cipher.init(int opmode, Key key, AlgorithmParameters params, SecureRandom random) -> void]
-            const initKey = Cipher.init.overload(
-                "int",
-                "java.security.Key",
-                "java.security.AlgorithmParameters",
-                "java.security.SecureRandom"
-            );
-
-            initKey.implementation = function (opmode, key, params, random) {
-                const lines = [];
-
-                initKey.call(this, opmode, key, params, random);
-
-                lines.push("7. [Cipher.init(int opmode, Key key, AlgorithmParameters params, SecureRandom random) -> void]");
-                lines.push("Algorithm: " + this.getAlgorithm());
-                lines.push(describeOpmode(opmode));
-
-                lines.push(logKey(key));
-                lines.push(logAlgorithmParameters(params));
-
-                lines.push("SecureRandom: " + random);
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 8. [Cipher.init(int opmode, Key key, SecureRandom random) -> void]
-            const initKey = Cipher.init.overload(
-                "int",
-                "java.security.Key",
-                "java.security.SecureRandom"
-            );
-
-            initKey.implementation = function (opmode, key, random) {
-                const lines = [];
-
-                initKey.call(this, opmode, key, random);
-
-                lines.push("8. [Cipher.init(int opmode, Key key, SecureRandom random) -> void]");
-                lines.push("Algorithm: " + this.getAlgorithm());
-                lines.push(describeOpmode(opmode));
-
-                lines.push(logKey(key));
-
-                lines.push("SecureRandom: " + random);
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        //  -------------------------
-        // | Cipher.update overloads |
-        //  -------------------------
-        try { // 1. [Cipher.update(byte[] input) -> byte[]]
-            const updateKey = Cipher.update.overload(
-                "[B"
-            );
-
-            updateKey.implementation = function (input) {
-                const output = updateKey.call(this, input);
-                const lines = [];
-
-                lines.push("1. [Cipher.update(byte[] input) -> byte[]]");
-                lines.push("Input (HEX): " + bytesToHex(input, maxPrintableLength));
-                lines.push("Input (ASCII): " + bytesToString(input, maxPrintableLength));
-
-                if (output !== null) {
-                    lines.push("Output (HEX): " + bytesToHex(output, maxPrintableLength));
-                    lines.push("Output (ASCII): " + bytesToString(output, maxPrintableLength));
-                } else {
-                    lines.push("Output: <none>");
-                }
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return output;
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 2. [Cipher.update(byte[] input, int inputOffset, int inputLen) -> byte[]]
-            const updateKey = Cipher.update.overload(
-                "[B",
-                "int",
-                "int"
-            );
-
-            updateKey.implementation = function (input, inputOffset, inputLen) {
-                const output = updateKey.call(this, input, inputOffset, inputLen);
-                const lines = [];
-
-                lines.push("2. [Cipher.update(byte[] input, int inputOffset, int inputLen) -> byte[]]");
-                lines.push("Input offset: " + inputOffset);
-                lines.push("Input length: " + inputLen);
-                lines.push("Input (HEX): " + bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength));
-                lines.push("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLen, maxPrintableLength));
-
-                if (output !== null) {
-                    lines.push("Output (HEX): " + bytesToHex(output, maxPrintableLength));
-                    lines.push("Output (ASCII): " + bytesToString(output, maxPrintableLength));
-                } else {
-                    lines.push("Output: <none>");
-                }
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return output;
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 3. [Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output) -> int]
-            const updateKey = Cipher.update.overload(
-                "[B",
-                "int",
-                "int",
-                "[B"
-            );
-
-            updateKey.implementation = function (input, inputOffset, inputLen, output) {
-                const outputLen = updateKey.call(this, input, inputOffset, inputLen, output);
-                const lines = [];
-
-                lines.push("3. [Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output) -> int]");
-                lines.push("Input offset: " + inputOffset);
-                lines.push("Input length: " + inputLen);
-                lines.push("Input (HEX): " + bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength));
-                lines.push("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLen, maxPrintableLength));
-
-                if (outputLen > 0) {
-                    lines.push("Bytes written: " + outputLen);
-                    lines.push("Output (HEX): " + bytesToHexRange(output, 0, outputLen, maxPrintableLength));
-                    lines.push("Output (ASCII): " + bytesToStringRange(output, 0, outputLen, maxPrintableLength));
-                } else {
-                    lines.push("Output: <none>");
-                }
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return outputLen;
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 4. [Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]
-            const updateKey = Cipher.update.overload(
-                "[B",
-                "int",
-                "int",
-                "[B",
-                "int"
-            );
-
-            updateKey.implementation = function (input, inputOffset, inputLen, output, outputOffset) {
-                const outputLen = updateKey.call(this, input, inputOffset, inputLen, output, outputOffset);
-                const lines = [];
-
-                lines.push("4. [Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]");
-                lines.push("Input offset: " + inputOffset);
-                lines.push("Input length: " + inputLen);
-                lines.push("Input (HEX): " + bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength));
-                lines.push("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLen, maxPrintableLength));
-
-                if (outputLen > 0) {
-                    lines.push("Bytes written: " + outputLen);
-                    lines.push("Output offset: " + outputOffset);
-                    lines.push("Output (HEX): " + bytesToHexRange(output, outputOffset, outputLen, maxPrintableLength));
-                    lines.push("Output (ASCII): " + bytesToStringRange(output, outputOffset, outputLen, maxPrintableLength));
-                } else {
-                    lines.push("Output: <none>");
-                }
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return outputLen;
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 5. [Cipher.update(ByteBuffer input, ByteBuffer output) -> int]
-            const updateKey = Cipher.update.overload(
-                "java.nio.ByteBuffer",
-                "java.nio.ByteBuffer"
-            );
-
-            updateKey.implementation = function (input, output) {
-                const outputLen = updateKey.call(this, input, output);
-                const lines = [];
-
-                lines.push("5. [Cipher.update(ByteBuffer input, ByteBuffer output) -> int]");
-                lines.push("Input buffer: " + input);
-
-                if (outputLen > 0) {
-                    lines.push("Bytes written: " + outputLen);
-                    lines.push("Output buffer (HEX): " + bytesToHexRange(output, 0, outputLen, maxPrintableLength));
-                    lines.push("Output buffer (ASCII): " + bytesToStringRange(output, 0, outputLen, maxPrintableLength));
-                } else {
-                    lines.push("Output: <none>");
-                }
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return outputLen;
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        //  --------------------------
-        // | Cipher.doFinal overloads |
-        //  --------------------------
-        try { // 1. [Cipher.doFinal() -> byte[]]
-            const finalKey = Cipher.doFinal.overload();
-
-            finalKey.implementation = function () {
-                const output = finalKey.call(this);
-                const lines = [];
-
-                lines.push("1. [Cipher.doFinal() -> byte[]]")
-
-                if (output !== null) {
-                    lines.push("Output (HEX): " + bytesToHex(output, maxPrintableLength));
-                    lines.push("Output (ASCII): " + bytesToString(output, maxPrintableLength));
-                } else {
-                    lines.push("Output: <null>");
-                }
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return output;
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 2. [Cipher.doFinal(byte[] input) -> byte[]]
-            const finalKey = Cipher.doFinal.overload(
-                "[B"
-            );
-
-            finalKey.implementation = function (input) {
-                const output = finalKey.call(this, input);
-                const lines = [];
-
-                lines.push("2. [Cipher.doFinal(byte[] input) -> byte[]]")
-                lines.push("Input (HEX): " + bytesToHex(input, maxPrintableLength));
-                lines.push("Input (ASCII): " + bytesToString(input, maxPrintableLength));
-
-                if (output !== null) {
-                    lines.push("Output (HEX): " + bytesToHex(output, maxPrintableLength));
-                    lines.push("Output (ASCII): " + bytesToString(output, maxPrintableLength));
-                } else {
-                    lines.push("Output: <null>");
-                }
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return output;
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 3. [Cipher.doFinal(byte[] output, int outputOffset) -> int]
-            const finalKey = Cipher.doFinal.overload(
-                "[B",
-                "int"
-            );
-
-            finalKey.implementation = function (output, outputOffset) {
-                const outputLen = finalKey.call(this, output, outputOffset);
-                const lines = [];
-
-                lines.push("3. [Cipher.doFinal(byte[] output, int outputOffset) -> int]");
-
-                if (outputLen > 0) {
-                    lines.push("Bytes written: " + outputLen);
-                    lines.push("Output (HEX): " + bytesToHexRange(output, outputOffset, outputLen, maxPrintableLength));
-                    lines.push("Output (ASCII): " + bytesToStringRange(output, outputOffset, outputLen, maxPrintableLength));
-                } else {
-                    lines.push("Output: <none>");
-                }
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return outputLen;
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 4. [Cipher.doFinal(byte[] input, int inputOffset, int inputLen) -> byte[]]
-            const finalKey = Cipher.doFinal.overload(
-                "[B",
-                "int",
-                "int"
-            );
-
-            finalKey.implementation = function (input, inputOffset, inputLen) {
-                const output = finalKey.call(this, input, inputOffset, inputLen);
-                const lines = [];
-
-                lines.push("4. [Cipher.doFinal(byte[] input, int inputOffset, int inputLen) -> byte[]]");
-                lines.push("Input offset: " + inputOffset);
-                lines.push("Input length: " + inputLen);
-                lines.push("Input (HEX): " + bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength));
-                lines.push("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLen, maxPrintableLength));
-
-                if (output !== null) {
-                    lines.push("Output (HEX): " + bytesToHex(output, maxPrintableLength));
-                    lines.push("Output (ASCII): " + bytesToString(output, maxPrintableLength));
-                } else {
-                    lines.push("Output: <null>");
-                }
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return output;
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 5. [Cipher.doFinal(byte[] input, int inputOffset, int inputLen, byte[] output) -> int]
-            const finalKey = Cipher.doFinal.overload(
-                "[B",
-                "int",
-                "int",
-                "[B"
-            );
-
-            finalKey.implementation = function (input, inputOffset, inputLen, output) {
-                const outputLen = finalKey.call(this, input, inputOffset, inputLen, output);
-                const lines = [];
-
-                lines.push("5. [Cipher.doFinal(byte[] input, int inputOffset, int inputLen, byte[] output) -> int]");
-                lines.push("Input offset: " + inputOffset);
-                lines.push("Input length: " + inputLen);
-                lines.push("Input (HEX): " + bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength));
-                lines.push("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLen, maxPrintableLength));
-
-                if (outputLen > 0) {
-                    lines.push("Bytes written: " + outputLen);
-                    lines.push("Output (HEX): " + bytesToHexRange(output, 0, outputLen, maxPrintableLength));
-                    lines.push("Output (ASCII): " + bytesToStringRange(output, 0, outputLen, maxPrintableLength));
-                } else {
-                    lines.push("Output: <none>");
-                }
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return outputLen;
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 6. [Cipher.doFinal(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]
-            const finalKey = Cipher.doFinal.overload(
-                "[B",
-                "int",
-                "int",
-                "[B",
-                "int"
-            );
-
-            finalKey.implementation = function (input, inputOffset, inputLen, output, outputOffset) {
-                const outputLen = finalKey.call(this, input, inputOffset, inputLen, output, outputOffset);
-                const lines = [];
-
-                lines.push("6. [Cipher.doFinal(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]");
-                lines.push("Input offset: " + inputOffset);
-                lines.push("Input length: " + inputLen);
-                lines.push("Input (HEX): " + bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength));
-                lines.push("Input (ASCII): " + bytesToStringRange(input, inputOffset, inputLen, maxPrintableLength));
-
-                if (outputLen > 0) {
-                    lines.push("Bytes written: " + outputLen);
-                    lines.push("Output offset: " + outputOffset);
-                    lines.push("Output (HEX): " + bytesToHexRange(output, outputOffset, outputLen, maxPrintableLength));
-                    lines.push("Output (ASCII): " + bytesToStringRange(output, outputOffset, outputLen, maxPrintableLength));
-                } else {
-                    lines.push("Output: <none>");
-                }
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return outputLen;
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 7. [Cipher.doFinal(ByteBuffer input, ByteBuffer output) -> int]
-            const finalKey = Cipher.doFinal.overload(
-                "java.nio.ByteBuffer",
-                "java.nio.ByteBuffer"
-            );
-
-            finalKey.implementation = function (input, output) {
-                const outputLen = finalKey.call(this, input, output);
-                const lines = [];
-
-                lines.push("7. [Cipher.doFinal(ByteBuffer input, ByteBuffer output) -> int]");
-
-                lines.push("Input buffer: " + input);
-                lines.push("Output buffer: " + output);
-
-                if (outputLen > 0) {
-                    lines.push("Bytes written: " + outputLen);
-                    lines.push("Output buffer (HEX): " + bytesToHexRange(output, 0, outputLen, maxPrintableLength));
-                    lines.push("Output buffer (ASCII): " + bytesToStringRange(output, 0, outputLen, maxPrintableLength));
-                } else {
-                    lines.push("Output: <none>");
-                }
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return outputLen;
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        //  ------------------------------
-        // | Cipher.getInstance overloads |
-        //  ------------------------------
-        try {// 1. [Cipher.getInstance(java.lang.String) -> static Cipher]
-            const instanceKey = Cipher.getInstance.overload(
-                "java.lang.String"
-            );
-
-            instanceKey.implementation = function (transformation) {
-                const cipher = instanceKey.call(this, transformation);
-                const lines = [];
-
-                lines.push("1. [Cipher.getInstance(java.lang.String) -> static Cipher]")
-                lines.push("Requested transformation: " + transformation);
-
-                lines.push("getAlgorithm(): " + cipher.getAlgorithm());
-                lines.push("Runtime class: " + cipher.getClass().getName());
+            cipherStates.set(objectId, state);
+
+            return cipher;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    //  -----------------------
+    // | Cipher.init overloads |
+    //  -----------------------
+    try { // 1. [Cipher.init(int opmode, Certificate certificate) -> void]
+        const initKey = Cipher.init.overload(
+            "int",
+            "java.security.cert.Certificate"
+        );
+
+        initKey.implementation = function (opmode, certificate) {
+            const objectId = getObjectId("Cipher", this);
+
+            initKey.call(this, opmode, certificate);
+
+            let state = cipherStates.get(objectId);
+
+            if (state !== undefined) {
+                state.initOverload = "[Cipher.init(int opmode, Certificate certificate) -> void]";
+                state.opmode = opmode;
+                state.opmodeString = describeOpmode(opmode);
+                state.certificateType = certificate.getType();
+                state.publicKey = certificate.getPublicKey();
 
                 try {
-                    lines.push("Block size: " + cipher.getBlockSize());
+                    state.blockSize = this.getBlockSize();
                 } catch (e) {
-                    lines.push("Error getting block size: " + e.message);
+                    state.blockSize = "<unavailable>";
+                }
+            };
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 2. [Cipher.init(int opmode, Certificate certificate, SecureRandom random) -> void]
+        const initKey = Cipher.init.overload(
+            "int",
+            "java.security.cert.Certificate",
+            "java.security.SecureRandom"
+        );
+
+        initKey.implementation = function (opmode, certificate, random) {
+            const objectId = getObjectId("Cipher", this);
+
+            initKey.call(this, opmode, certificate, random);
+
+            let state = cipherStates.get(objectId);
+
+            if (state !== undefined) {
+                state.initOverload = "[Cipher.init(int opmode, Certificate certificate, SecureRandom random) -> void]";
+                state.opmode = opmode;
+                state.opmodeString = describeOpmode(opmode);
+                state.certificateType = certificate.getType();
+                state.publicKey = certificate.getPublicKey();
+
+                try {
+                    state.blockSize = this.getBlockSize();
+                } catch (e) {
+                    state.blockSize = "<unavailable>";
+                }
+            };
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 3. [Cipher.init(int opmode, Key key) -> void]
+        const initKey = Cipher.init.overload(
+            "int",
+            "java.security.Key"
+        );
+
+        initKey.implementation = function (opmode, key) {
+            const objectId = getObjectId("Cipher", this);
+
+            initKey.call(this, opmode, key);
+
+            let state = cipherStates.get(objectId);
+
+            if (state !== undefined) {
+                state.opmode = opmode;
+                state.opmodeString = describeOpmode(opmode);
+
+                try {
+                    state.blockSize = this.getBlockSize();
+                } catch (e) {
+                    state.blockSize = "<unavailable>";
                 }
 
-                const provider = cipher.getProvider();
-                if (provider !== null) {
-                    lines.push("Provider name: " + provider.getName());
-                    lines.push("Provider version: " + provider.getVersion());
-                    lines.push("Provider info: " + provider.getInfo());
-                    lines.push("Provider class: " + provider.getClass().getName());
+                logKey(state, key);
+            };
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 4. [Cipher.init(int opmode, Key key, AlgorithmParameters params) -> void]
+        const initKey = Cipher.init.overload(
+            "int",
+            "java.security.Key",
+            "java.security.AlgorithmParameters"
+        );
+
+        initKey.implementation = function (opmode, key, params) {
+            const objectId = getObjectId("Cipher", this);
+
+            initKey.call(this, opmode, key, params);
+
+            let state = cipherStates.get(objectId);
+
+            if (state !== undefined) {
+                state.initOverload = "[Cipher.init(int opmode, Key key, AlgorithmParameters params) -> void]";
+                state.opmode = opmode;
+                state.opmodeString = describeOpmode(opmode);
+
+                try {
+                    state.blockSize = this.getBlockSize();
+                } catch (e) {
+                    state.blockSize = "<unavailable>";
                 }
 
-                //lines.push(traceStack());
+                logKey(state, key);
+                logAlgorithmParameters(state, params);
+            };
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
 
-                console.log(lines.join("\n"));
+    try { // 5. [Cipher.init(int opmode, Key key, AlgorithmParameterSpec params) -> void]
+        const initKey = Cipher.init.overload(
+            "int",
+            "java.security.Key",
+            "java.security.spec.AlgorithmParameterSpec"
+        );
 
-                return cipher;
+        initKey.implementation = function (opmode, key, params) {
+            const objectId = getObjectId("Cipher", this);
+
+            initKey.call(this, opmode, key, params);
+
+            let state = cipherStates.get(objectId);
+
+            if (state !== undefined) {
+                state.initOverload = "[Cipher.init(int opmode, Key key, AlgorithmParameterSpec params) -> void]";
+                state.opmode = opmode;
+                state.opmodeString = describeOpmode(opmode);
+
+                try {
+                    state.blockSize = this.getBlockSize();
+                } catch (e) {
+                    state.blockSize = "<unavailable>";
+                }
+
+                logKey(state, key);
+                logAlgorithmParameterSpec(state, params);
+            };
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 6. [Cipher.init(int opmode, Key key, AlgorithmParameterSpec params, SecureRandom random) -> void]
+        const initKey = Cipher.init.overload(
+            "int",
+            "java.security.Key",
+            "java.security.spec.AlgorithmParameterSpec",
+            "java.security.SecureRandom"
+        );
+
+        initKey.implementation = function (opmode, key, params, random) {
+            const objectId = getObjectId("Cipher", this);
+
+            initKey.call(this, opmode, key, params, random);
+
+            let state = cipherStates.get(objectId);
+
+            if (state !== undefined) {
+                state.initOverload = "[Cipher.init(int opmode, Key key, AlgorithmParameterSpec params, SecureRandom random) -> void]";
+                state.opmode = opmode;
+                state.opmodeString = describeOpmode(opmode);
+
+                try {
+                    state.blockSize = this.getBlockSize();
+                } catch (e) {
+                    state.blockSize = "<unavailable>";
+                }
+
+                logKey(state, key);
+                logAlgorithmParameterSpec(state, params);
+
+                state.secureRandom = random !== null ? String(random.getClass().getName()) : "<null>";
+            };
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 7. [Cipher.init(int opmode, Key key, AlgorithmParameters params, SecureRandom random) -> void]
+        const initKey = Cipher.init.overload(
+            "int",
+            "java.security.Key",
+            "java.security.AlgorithmParameters",
+            "java.security.SecureRandom"
+        );
+
+        initKey.implementation = function (opmode, key, params, random) {
+            const objectId = getObjectId("Cipher", this);
+
+            initKey.call(this, opmode, key, params, random);
+
+            let state = cipherStates.get(objectId);
+
+            if (state !== undefined) {
+                state.initOverload = "[Cipher.init(int opmode, Key key, AlgorithmParameters params, SecureRandom random) -> void]";
+                state.opmode = opmode;
+                state.opmodeString = describeOpmode(opmode);
+
+                try {
+                    state.blockSize = this.getBlockSize();
+                } catch (e) {
+                    state.blockSize = "<unavailable>";
+                }
+
+                logKey(state, key);
+                logAlgorithmParameters(state, params);
+
+                state.secureRandom = random !== null ? String(random.getClass().getName()) : "<null>";
+            };
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 8. [Cipher.init(int opmode, Key key, SecureRandom random) -> void]
+        const initKey = Cipher.init.overload(
+            "int",
+            "java.security.Key",
+            "java.security.SecureRandom"
+        );
+
+        initKey.implementation = function (opmode, key, random) {
+            const objectId = getObjectId("Cipher", this);
+
+            initKey.call(this, opmode, key, random);
+
+            let state = cipherStates.get(objectId);
+
+            if (state !== undefined) {
+                state.initOverload = "[Cipher.init(int opmode, Key key, SecureRandom random) -> void]";
+                state.opmode = opmode;
+                state.opmodeString = describeOpmode(opmode);
+
+                try {
+                    state.blockSize = this.getBlockSize();
+                } catch (e) {
+                    state.blockSize = "<unavailable>";
+                }
+
+                logKey(state, key);
+
+                state.secureRandom = random !== null ? String(random.getClass().getName()) : "<null>";
+            };
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    //  -------------------------
+    // | Cipher.update overloads |
+    //  -------------------------
+    try { // 1. [Cipher.update(byte[] input) -> byte[]]
+        const updateKey = Cipher.update.overload(
+            "[B"
+        );
+
+        updateKey.implementation = function (input) {
+            const objectId = getObjectId("Cipher", this);
+            const output = updateKey.call(this, input);
+
+            let state = cipherStates.get(objectId);
+
+            if (state !== undefined) {
+                state.updateOverload = "[Cipher.update(byte[] input) -> byte[]]";
+                state.updateCount++;
             }
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
 
-        try { // 2. [Cipher.getInstance(java.lang.String, java.lang.String)] -> static Cipher
-            const instanceKey = Cipher.getInstance.overload(
-                "java.lang.String",
-                "java.lang.String"
-            );
+            return output;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
 
-            instanceKey.implementation = function (transformation, provider) {
-                const cipher = instanceKey.call(this, transformation, provider);
-                const lines = [];
+    try { // 2. [Cipher.update(byte[] input, int inputOffset, int inputLen) -> byte[]]
+        const updateKey = Cipher.update.overload(
+            "[B",
+            "int",
+            "int"
+        );
 
-                lines.push("2. [Cipher.getInstance(java.lang.String, java.lang.String) -> static Cipher]")
-                lines.push("Requested transformation: " + transformation);
-                lines.push("Requested provider: " + provider);
+        updateKey.implementation = function (input, inputOffset, inputLen) {
+            const objectId = getObjectId("Cipher", this);
+            const output = updateKey.call(this, input, inputOffset, inputLen);
 
-                lines.push("getAlgorithm(): " + cipher.getAlgorithm());
-                lines.push("Runtime class: " + cipher.getClass().getName());
+            let state = cipherStates.get(objectId);
 
-                try {
-                    lines.push("Block size: " + cipher.getBlockSize());
-                } catch (e) {
-                    lines.push("Error getting block size: " + e.message);
+            if (state !== undefined) {
+                state.updateOverload = "[Cipher.update(byte[] input, int inputOffset, int inputLen) -> byte[]]";
+                state.updateCount++;
+            }
+
+            return output;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 3. [Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output) -> int]
+        const updateKey = Cipher.update.overload(
+            "[B",
+            "int",
+            "int",
+            "[B"
+        );
+
+        updateKey.implementation = function (input, inputOffset, inputLen, output) {
+            const objectId = getObjectId("Cipher", this);
+            const outputLen = updateKey.call(this, input, inputOffset, inputLen, output);
+
+            let state = cipherStates.get(objectId);
+
+            if (state !== undefined) {
+                state.updateOverload = "[Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output) -> int]";
+                state.updateCount++;
+            }
+
+            return outputLen;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 4. [Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]
+        const updateKey = Cipher.update.overload(
+            "[B",
+            "int",
+            "int",
+            "[B",
+            "int"
+        );
+
+        updateKey.implementation = function (input, inputOffset, inputLen, output, outputOffset) {
+            const objectId = getObjectId("Cipher", this);
+            const outputLen = updateKey.call(this, input, inputOffset, inputLen, output, outputOffset);
+
+            let state = cipherStates.get(objectId);
+
+            if (state !== undefined) {
+                state.updateOverload = "[Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]";
+                state.updateCount++;
+            }
+
+            return outputLen;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 5. [Cipher.update(ByteBuffer input, ByteBuffer output) -> int]
+        const updateKey = Cipher.update.overload(
+            "java.nio.ByteBuffer",
+            "java.nio.ByteBuffer"
+        );
+
+        updateKey.implementation = function (input, output) {
+            const objectId = getObjectId("Cipher", this);
+            const outputLen = updateKey.call(this, input, output);
+
+            let state = cipherStates.get(objectId);
+
+            if (state !== undefined) {
+                state.updateOverload = "[Cipher.update(ByteBuffer input, ByteBuffer output) -> byte[]]";
+                state.updateCount++;
+            }
+
+            return outputLen;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    //  --------------------------
+    // | Cipher.doFinal overloads |
+    //  --------------------------
+    try { // 1. [Cipher.doFinal() -> byte[]]
+        const finalKey = Cipher.doFinal.overload();
+
+        finalKey.implementation = function () {
+            const objectId = getObjectId("Cipher", this);
+            const output = finalKey.call(this);
+
+            let state = cipherStates.get(objectId);
+
+            if (output !== null && state !== undefined) {
+                state.finalOverload = "[Cipher.doFinal() -> byte[]]";
+                state.bytesWritten = output.length;
+
+                if (state.opmode === 1) {
+                    state.output = bytesToHex(output, maxPrintableLength);
+                } else if (state.opmode === 2) {
+                    state.output = bytesToString(output, maxPrintableLength);
                 }
+            }
 
-                const cipherProvider = cipher.getProvider();
-                if (provider !== null) {
-                    lines.push("Provider name: " + cipherProvider.getName());
-                    lines.push("Provider version: " + cipherProvider.getVersion());
-                    lines.push("Provider info: " + cipherProvider.getInfo());
-                    lines.push("Provider class: " + cipherProvider.getClass().getName());
+            logging(state);
+
+            return output;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 2. [Cipher.doFinal(byte[] input) -> byte[]]
+        const finalKey = Cipher.doFinal.overload(
+            "[B"
+        );
+
+        finalKey.implementation = function (input) {
+            const objectId = getObjectId("Cipher", this);
+            const output = finalKey.call(this, input);
+
+            let state = cipherStates.get(objectId);
+
+            if (output !== null && state !== undefined) {
+                state.finalOverload = "[Cipher.doFinal(byte[] input) -> byte[]]";
+                state.bytesWritten = output.length;
+
+                if (state.opmode === 1) {
+                    state.input = bytesToString(input, maxPrintableLength);
+                    state.output = bytesToHex(output, maxPrintableLength);
+                } else if (state.opmode === 2) {
+                    state.input = bytesToHex(input, maxPrintableLength);
+                    state.output = bytesToString(output, maxPrintableLength);
                 }
+            }
 
-                //lines.push(traceStack());
+            logging(state);
 
-                console.log(lines.join("\n"));
+            return output;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
 
-                return cipher;
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
+    try { // 3. [Cipher.doFinal(byte[] output, int outputOffset) -> int]
+        const finalKey = Cipher.doFinal.overload(
+            "[B",
+            "int"
+        );
 
-        try { // 3. [Cipher.getInstance(java.lang.String, java.security.Provider) -> static Cipher]
-            const instanceKey = Cipher.getInstance.overload(
-                "java.lang.String",
-                "java.security.Provider"
-            );
+        finalKey.implementation = function (output, outputOffset) {
+            const objectId = getObjectId("Cipher", this);
+            const outputLen = finalKey.call(this, output, outputOffset);
 
-            instanceKey.implementation = function (transformation, provider) {
-                const cipher = instanceKey.call(this, transformation, provider);
-                const lines = [];
+            let state = cipherStates.get(objectId);
 
-                lines.push("3. [Cipher.getInstance(java.lang.String, java.security.Provider) -> static Cipher]")
-                lines.push("Requested transformation: " + transformation);
+            if (outputLen > 0 && state !== undefined) {
+                state.finalOverload = "[Cipher.doFinal(byte[] output int outputOffset) -> int]";
 
-                lines.push("getAlgorithm(): " + cipher.getAlgorithm());
-                lines.push("Runtime class: " + cipher.getClass().getName());
+                state.bytesWritten = output.length;
 
-                try {
-                    lines.push("Block size: " + cipher.getBlockSize());
-                } catch (e) {
-                    lines.push("Error getting block size: " + e.message);
+                if (state.opmode === 1) {
+                    state.output = bytesToHexRange(output, outputOffset, outputLen, maxPrintableLength);
+                } else if (state.opmode === 2) {
+                    state.output = bytesToStringRange(output, outputOffset, outputLen, maxPrintableLength);
                 }
+            }
 
-                if (provider !== null) {
-                    lines.push("Provider name: " + provider.getName());
-                    lines.push("Provider version: " + provider.getVersion());
-                    lines.push("Provider info: " + provider.getInfo());
-                    lines.push("Provider class: " + provider.getClass().getName());
+            logging(state);
+
+            return outputLen;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 4. [Cipher.doFinal(byte[] input, int inputOffset, int inputLen) -> byte[]]
+        const finalKey = Cipher.doFinal.overload(
+            "[B",
+            "int",
+            "int"
+        );
+
+        finalKey.implementation = function (input, inputOffset, inputLen) {
+            const objectId = getObjectId("Cipher", this);
+            const output = finalKey.call(this, input, inputOffset, inputLen);
+
+            let state = cipherStates.get(objectId);
+
+            if (state !== undefined) {
+                state.finalOverload = "[Cipher.doFinal(byte[] input int inputOffset, int inputLen) -> byte[]]";
+
+                state.bytesWritten = output.length;
+
+                if (state.opmode === 1) {
+                    state.input = bytesToStringRange(input, inputOffset, inputLen, maxPrintableLength);
+                    state.output = bytesToHex(output, maxPrintableLength);
+                } else if (state.opmode === 2) {
+                    state.input = bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength);
+                    state.output = bytesToString(output, maxPrintableLength);
                 }
+            }
 
-                //lines.push(traceStack());
+            logging(state);
 
-                console.log(lines.join("\n"));
+            return output;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
 
-                return cipher;
+    try { // 5. [Cipher.doFinal(byte[] input, int inputOffset, int inputLen, byte[] output) -> int]
+        const finalKey = Cipher.doFinal.overload(
+            "[B",
+            "int",
+            "int",
+            "[B"
+        );
+
+        finalKey.implementation = function (input, inputOffset, inputLen, output) {
+            const objectId = getObjectId("Cipher", this);
+            const outputLen = finalKey.call(this, input, inputOffset, inputLen, output);
+
+            let state = cipherStates.get(objectId);
+
+            if (outputLen > 0 && state !== undefined) {
+                state.finalOverload = "[Cipher.doFinal(byte[] input int inputOffset, int inputLen, byte[] output) -> int]";
+
+                state.bytesWritten = outputLen;
+
+                if (state.opmode === 1) {
+                    state.input = bytesToStringRange(input, inputOffset, inputLen, maxPrintableLength);
+                    state.output = bytesToHexRange(output, 0, outputLen, maxPrintableLength);
+                } else if (state.opmode === 2) {
+                    state.input = bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength);
+                    state.output = bytesToStringRange(output, 0, outputLen, maxPrintableLength);
+                }
+            }
+
+            logging(state);
+
+            return outputLen;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 6. [Cipher.doFinal(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]
+        const finalKey = Cipher.doFinal.overload(
+            "[B",
+            "int",
+            "int",
+            "[B",
+            "int"
+        );
+
+        finalKey.implementation = function (input, inputOffset, inputLen, output, outputOffset) {
+            const objectId = getObjectId("Cipher", this);
+            const outputLen = finalKey.call(this, input, inputOffset, inputLen, output, outputOffset);
+
+            let state = cipherStates.get(objectId);
+
+            if (outputLen > 0 && state !== undefined) {
+                state.finalOverload = "[Cipher.doFinal(byte[] input int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]";
+
+                state.bytesWritten = outputLen;
+
+                if (state.opmode === 1) {
+                    state.input = bytesToStringRange(input, inputOffset, inputLen, maxPrintableLength);
+                    state.output = bytesToHexRange(output, outputOffset, outputLen, maxPrintableLength);
+                } else if (state.opmode === 2) {
+                    state.input = bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength);
+                    state.output = bytesToStringRange(output, outputOffset, outputLen, maxPrintableLength);
+                }
+            }
+
+            logging(state);
+
+            return outputLen;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 7. [Cipher.doFinal(ByteBuffer input, ByteBuffer output) -> int]
+        const finalKey = Cipher.doFinal.overload(
+            "java.nio.ByteBuffer",
+            "java.nio.ByteBuffer"
+        );
+
+        finalKey.implementation = function (input, output) {
+            const objectId = getObjectId("Cipher", this);
+            const outputLen = finalKey.call(this, input, output);
+            const duplicateInput = input.duplicate();
+            const duplicateOutput = output.duplicate();
+
+            let state = cipherStates.get(objectId);
+
+            if (state !== undefined) {
+                state.finalOverload = "[Cipher.doFinal(ByteBuffer input, ByteBuffer output) -> int]";
+                state.bytesWritten = outputLen;
+
+                if (state.opmode === 1) {
+                    state.input = bytesToString(duplicateInput, maxPrintableLength);
+                    state.output = bytesToHex(duplicateOutput, maxPrintableLength);
+                } else if (state.opmode === 2) {
+                    state.input = bytesToHex(duplicateInput, maxPrintableLength);
+                    state.output = bytesToString(duplicateOutput, maxPrintableLength);
+                }
+            }
+
+            logging(state);
+
+            return outputLen;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    //  ---------------
+    // | Mac overloads |
+    //  ---------------
+    const Mac = Java.use("javax.crypto.Mac");
+
+    //  -----------------------------
+    // | Mac.getInstance() overloads |
+    //  -----------------------------
+    try {// 1. [Mac.getInstance(java.lang.String) -> static Mac]
+        const instanceKey = Mac.getInstance.overload(
+            "java.lang.String"
+        );
+
+        instanceKey.implementation = function (transformation) {
+            const instance = instanceKey.call(Mac, transformation);
+            const provider = instance.getProvider();
+            const objectId = getObjectId("Mac", instance);
+
+            const state = {
+                objectId: objectId,
+                timestamp: Date.now(),
+                instanceOverload: "[Mac.getInstance(java.lang.String) -> static Mac]",
+                transformation: transformation,
+                algorithm: instance.getAlgorithm(),
+                runtimeClass: instance.getClass().getName(),
+                providerName: provider.getName(),
+                providerVersion: provider.getVersion(),
+                providerInfo: provider.getInfo(),
+                providerClass: provider.getClass().getName(),
+                updateCount: 0,
+                updates: []
             };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
+
+            macStates.set(objectId, state);
+
+            return instance;
         }
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
 
-        //  ----------------------------
-        // | Cipher.updateAAD overloads |
-        //  ----------------------------
-        try { // 1. [Cipher.updateAAD(byte[] src) -> void]
-            const updateaadKey = Cipher.updateAAD.overload(
-                "[B"
-            );
+    try { // 2. [Mac.getInstance(java.lang.String, java.lang.String) -> static Mac]
+        const instanceKey = Mac.getInstance.overload(
+            "java.lang.String",
+            "java.lang.String"
+        );
 
-            updateaadKey.implementation = function (src) {
-                updateaadKey.call(this, src);
-                const lines = [];
+        instanceKey.implementation = function (transformation, provider) {
+            const instance = instanceKey.call(Mac, transformation, provider);
+            const macProvider = instance.getProvider();
+            const objectId = getObjectId("Mac", instance);
 
-                lines.push("1. [Cipher.updateAAD(byte[] src) -> void]");
-                lines.push("Source bytes (HEX): " + bytesToHex(src, maxPrintableLength));
-                lines.push("Source bytes (ASCII): " + bytesToString(src, maxPrintableLength));
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
+            const state = {
+                objectId: objectId,
+                timestamp: Date.now(),
+                instanceOverload: "[Mac.getInstance(java.lang.String, java.lang.String) -> static Mac]",
+                transformation: transformation,
+                algorithm: instance.getAlgorithm(),
+                runtimeClass: instance.getClass().getName(),
+                providerName: macProvider.getName(),
+                providerVersion: macProvider.getVersion(),
+                providerInfo: macProvider.getInfo(),
+                providerClass: macProvider.getClass().getName(),
+                updateCount: 0,
+                updates: []
             };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
 
-        try { // 2. [Cipher.updateAAD(byte[] src, int offset, int len) -> void]
-            const updateaadKey = Cipher.updateAAD.overload(
-                "[B",
-                "int",
-                "int"
-            );
+            macStates.set(objectId, state);
 
-            updateaadKey.implementation = function (src, offset, len) {
-                updateaadKey.call(this, src, offset, len);
-                const lines = [];
+            return instance;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
 
-                const aadSlice = byteArraySlice(src, offset, len);
+    try { // 3. [Mac.getInstance(java.lang.String, java.security.Provider) -> static Mac]
+        const instanceKey = Mac.getInstance.overload(
+            "java.lang.String",
+            "java.security.Provider"
+        );
 
-                lines.push("2. [Cipher.updateAAD(byte[] src, int offset, int len) -> void]")
-                lines.push("Source buffer (HEX): " + bytesToHex(src, maxPrintableLength));
-                lines.push("Offset: " + offset);
-                lines.push("Length: " + len);
-                lines.push("AAD (HEX): " + bytesToHex(aadSlice, maxPrintableLength));
-                lines.push("AAD (ASCII): " + bytesToString(aadSlice, maxPrintableLength));
+        instanceKey.implementation = function (transformation, provider) {
+            const instance = instanceKey.call(Mac, transformation, provider);
+            const objectId = getObjectId("Mac", instance);
 
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
+            const state = {
+                objectId: objectId,
+                timestamp: Date.now(),
+                instanceOverload: "[Mac.getInstance(java.lang.String, java.security.Provider) -> static Mac]",
+                transformation: transformation,
+                algorithm: instance.getAlgorithm(),
+                runtimeClass: instance.getClass().getName(),
+                providerName: provider.getName(),
+                providerVersion: provider.getVersion(),
+                providerInfo: provider.getInfo(),
+                providerClass: provider.getClass().getName(),
+                updateCount: 0,
+                updates: []
             };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
 
-        try { // 3. [Cipher.updateAAD(ByteBufer src) -> void]
-            const updateaadKey = Cipher.updateAAD.overload(
-                "java.nio.ByteBuffer"
-            );
+            macStates.set(objectId, state);
 
-            updateaadKey.implementation = function (src) {
-                const lines = [];
-                const positionBefore = src.position();
-                const limitBefore = src.limit();
-                const remainingBefore = src.remaining();
+            return instance;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
 
-                updateaadKey.call(this, src);
+    //  ----------------------
+    // | Mac.init() overloads |
+    //  ----------------------
+    try { // 1. [Mac.init(Key key) -> void]
+        const macKey = Mac.init.overload(
+            "java.security.Key"
+        );
 
-                lines.push("3. [Cipher.updateAAD(ByteBufer src) -> void]");
+        macKey.implementation = function (key) {
+            macKey.call(this, key);
 
-                lines.push("Position before: " + positionBefore);
-                lines.push("Limit before: " + limitBefore);
-                lines.push("Remaining before: " + remainingBefore);
+            const objectId = getObjectId("Mac", this);
 
-                // Duplicate shares content but maintains its own position/limit state.
-                const duplicate = src.duplicate();
+            let state = macStates.get(objectId);
 
-                const aad = Java.array(
-                    "byte",
-                    new Array(remainingBefore).fill(0) // New array of length remainingBefore, filled with 0s
-                );
+            if (state !== undefined) {
+                state.initOverload = "[Mac.init(Key key, AlgorithmParameterSpec params) -> void]";
+                state.macLength = this.getMacLength();
 
-                duplicate.get(aad); // Copy bytes from duplicate to aad
-
-                lines.push("AAD (HEX): " + bytesToHex(aad, maxPrintableLength));
-                lines.push("AAD (ASCII): " + bytesToString(aad, maxPrintableLength));
-
-                lines.push("Position after: " + src.position());
-                lines.push("Limit after: " + src.limit());
-                lines.push("Remaining after: " + src.remaining());
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
+                logKey(state, key);
             };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
 
-        //  -----------------------
-        // | Cipher.wrap overloads |
-        //  -----------------------
-        try { // 1. [Cipher.wrap(java.security.Key) -> byte[]]
-            const wrapKey = Cipher.wrap.overload(
-                "java.security.Key"
-            );
+            logging(state);
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
 
-            wrapKey.implementation = function (key) {
-                const wrappedKey = wrapKey.call(this, key);
-                const lines = [];
+    try { // 2. [Mac.init(Key key, AlgorithmParameterSpec params) -> void]
+        const macKey = Mac.init.overload(
+            "java.security.Key",
+            "java.security.spec.AlgorithmParameterSpec"
+        );
 
-                lines.push("1. [Cipher.wrap(java.security.Key) -> byte[]]");
-                lines.push("Cipher transformation: " + this.getAlgorithm());
+        macKey.implementation = function (key, params) {
+            macKey.call(this, key, params);
 
-                logKey(key);
+            const objectId = getObjectId("Mac", this);
 
-                lines.push("Wrapped key (HEX): " + bytesToHex(wrappedKey, maxPrintableLength));
+            let state = macStates.get(objectId);
 
-                //lines.push(traceStack());
+            if (state !== undefined) {
+                state.initOverload = "[Mac.init(Key key, AlgorithmParameterSpec params) -> void]";
+                state.macLength = this.getMacLength();
 
-                console.log(lines.join("\n"));
-
-                return wrappedKey;
+                logKey(state, key);
+                console.log("Params: " + params);
+                logAlgorithmParameterSpec(state, params);
             };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
 
-        //  -------------------------
-        // | Cipher.unwrap overloads |
-        //  -------------------------
-        try { // 1. [Cipher.unwrap(byte[] wrappedKey, String wrappedKeyAlgorithm, int wrappedKeyType) -> Key]
-            const unwrapKey = Cipher.unwrap.overload(
-                "[B",
-                "java.lang.String",
-                "int"
-            );
+            logging(state);
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
 
-            unwrapKey.implementation = function (wrappedKey, wrappedKeyAlgorithm, wrappedKeyType) {
-                const unwrappedKey = unwrapKey.call(this, wrappedKey, wrappedKeyAlgorithm, wrappedKeyType);
-                const lines = [];
+    //  ------------------------
+    // | Mac.update() overloads |
+    //  ------------------------
+    /*
+    try { // 1. [Mac.update(byte input) -> void]
+        const macKey = Mac.update.overload(
+            "byte"
+        );
 
-                lines.push("1. [Cipher.unwrap(byte[] wrappedKey, String wrappedKeyAlgorithm, int wrappedKeyType) -> Key]");
-                lines.push("Cipher transformation: " + this.getAlgorithm());
-                lines.push("Wrapped key: " + bytesToHex(wrappedKey, maxPrintableLength));
-                lines.push("Wrapped key algorithm: " + wrappedKeyAlgorithm.toString());
-                lines.push("Wrapped key type: " + wrappedKeyTypeToString(wrappedKeyType) + " (" + wrappedKeyType + ")");
+        macKey.implementation = function (input) {
+            macKey.call(this, input);
 
-                logKey(unwrappedKey);
+            const objectId = getObjectId("Mac", this);
 
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return unwrappedKey;
+            let state = macStates.get(objectId);
+            
+            if (state !== undefined) {
+                state.updateCount++;
+                state.updates.push({
+                    overload: "[Mac.init(byte input) -> void]",
+                    input: bytesToHex(input, maxPrintableLength)
+                });
             };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+    */
 
-        //  ------------------
-        // | Base64 overloads |
-        //  ------------------
-        const Base64 = Java.use("android.util.Base64");
+    try { // 2. [Mac.update(byte[] input) -> void]
+        const macKey = Mac.update.overload(
+            "[B"
+        );
 
-        //  -------------------------
-        // | Base64.encode overloads |
-        //  -------------------------
-        try { // 1. [Base64.encode(byte[] input, int flags) -> byte[]]
-            const encodeKey = Base64.encode.overload(
-                "[B",
-                "int"
-            );
+        macKey.implementation = function (input) {
+            macKey.call(this, input);
 
-            encodeKey.implementation = function (input, flags) {
-                const encodedString = encodeKey.call(this, input, flags);
-                const lines = [];
+            const objectId = getObjectId("Mac", this);
 
-                let flagString = base64FlagsToString(flags);
+            let state = macStates.get(objectId);
 
-                lines.push("1. [Base64.encode(byte[] input, int flags) -> byte[]]");
-                lines.push("Input (HEX): " + bytesToHex(input, maxPrintableLength));
-                lines.push("Input (ASCII): " + bytesToString(input, maxPrintableLength));
-                lines.push("Input length: " + input.length);
-                lines.push("Flags (Numerical): " + flags);
-                lines.push("Flags (String): " + flagString);
-
-                lines.push("Encoded string (HEX): " + bytesToHex(encodedString, maxPrintableLength));
-                lines.push("Encoded string (ASCII): " + bytesToString(encodedString, maxPrintableLength));
-                lines.push("Encoded string length: " + encodedString.length);
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return encodedString;
+            if (state !== undefined) {
+                state.updateOverload = "[Mac.init(byte[] input) -> void]";
+                state.updateCount++;
+                state.updates.push(bytesToHex(input, maxPrintableLength));
             };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
 
-        try { // 2. [Base64.encode(byte[] input, int offset, int len, int flags) -> byte[]]
-            const encodeKey = Base64.encode.overload(
-                "[B",
-                "int",
-                "int",
-                "int"
-            );
+    try { // 3. [MessageDigest.update(byte[] input, int offset, int len) -> void]
+        const macKey = Mac.update.overload(
+            "[B",
+            "int",
+            "int"
+        );
 
-            encodeKey.implementation = function (input, offset, len, flags) {
-                const encodedString = encodeKey.call(this, input, offset, len, flags);
-                const lines = [];
+        macKey.implementation = function (input, offset, len) {
+            macKey.call(this, input, offset, len);
 
-                let flagString = base64FlagsToString(flags);
+            const objectId = getObjectId("Mac", this);
 
-                lines.push("2. [Base64.encode(byte[input, int offset, int len, int flags]) -> byte[]]");
-                lines.push("Input (HEX): " + bytesToHexRange(input, offset, len, maxPrintableLength));
-                lines.push("Input (ASCII): " + bytesToStringRange(input, offset, len, maxPrintableLength));
-                lines.push("Input length: " + input.length);
-                lines.push("Input offset: " + offset);
-                lines.push("Input length: " + len);
-                lines.push("Flags (Numerical): " + flags);
-                lines.push("Flags (String): " + flagString);
+            let state = macStates.get(objectId);
 
-                lines.push("Encoded string (HEX): " + bytesToHex(encodedString, maxPrintableLength));
-                lines.push("Encoded string (ASCII): " + bytesToString(encodedString, maxPrintableLength));
-                lines.push("Encoded string length: " + encodedString.length);
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return encodedString;
+            if (state !== undefined) {
+                state.updateOverload = "[Mac.init(byte[] input, int offset, int len) -> void]";
+                state.updateCount++;
+                state.updates.push(bytesToHexRange(input, offset, len, maxPrintableLength));
             };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        //  ---------------------------------
-        // | Base64.encodeToString overloads |
-        //  ---------------------------------
-        try { // 1. [Base64.encodeToString(byte[] input, int flags) -> java.lang.String]
-            const encodeKey = Base64.encodeToString.overload(
-                "[B",
-                "int"
-            );
-
-            encodeKey.implementation = function (input, flags) {
-                const encodedString = encodeKey.call(this, input, flags);
-                const lines = [];
-
-                let flagString = base64FlagsToString(flags);
-
-                lines.push("1. [Base64.encodeToString(byte[] input, int flags) -> java.lang.String]");
-                lines.push("Input (HEX): " + bytesToHex(input, maxPrintableLength));
-                lines.push("Input (ASCII): " + bytesToString(input, maxPrintableLength));
-                lines.push("Input length: " + input.length);
-                lines.push("Flags (Numerical): " + flags);
-                lines.push("Flags (String): " + flagString);
-
-                lines.push("Encoded string: " + bytesToString(encodedString, maxPrintableLength));
-                lines.push("Encoded string length: " + encodedString.length);
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return encodedString;
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 2. [Base64.encodeToString(byte[] input, int offset, int len, int flags) -> java.lang.String]
-            const encodeKey = Base64.encodeToString.overload(
-                "[B",
-                "int",
-                "int",
-                "int"
-            );
-
-            encodeKey.implementation = function (input, offset, len, flags) {
-                const encodedString = encodeKey.call(this, input, offset, len, flags);
-                const lines = [];
-
-                let flagString = base64FlagsToString(flags);
-
-                lines.push("2. [Base64.encodeToString(byte[] input, int offset, int len, int flags]) -> java.lang.String]");
-                lines.push("Input (HEX): " + bytesToHexRange(input, offset, len, maxPrintableLength));
-                lines.push("Input (ASCII): " + bytesToStringRange(input, offset, len, maxPrintableLength));
-                lines.push("Input length: " + input.length);
-                lines.push("Input offset: " + offset);
-                lines.push("Input length: " + len);
-                lines.push("Flags (Numerical): " + flags);
-                lines.push("Flags (String): " + flagString);
-
-                lines.push("Encoded string: " + bytesToString(encodedString, maxPrintableLength));
-                lines.push("Encoded string length: " + encodedString.length);
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return encodedString;
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        //  -------------------------
-        // | Base64.decode overloads |
-        //  -------------------------
-        try { // 1. [Base64.decode(java.lang.String str, int flags) -> byte[]
-            const decodeKey = Base64.decode.overload(
-                "java.lang.String",
-                "int"
-            );
-
-            decodeKey.implementation = function (str, flags) {
-                const decodedString = decodeKey.call(this, str, flags);
-                const lines = [];
-
-                let flagString = base64FlagsToString(flags);
-
-                lines.push("1. [Base64.decode(java.lang.String str, int flags) -> byte[]]");
-                lines.push("Encoded input: " + str);
-                lines.push("Flags (Numerical): " + flags);
-                lines.push("Flags (String): " + flagString);
-
-                lines.push("Decoded output (HEX): " + bytesToHex(decodedString, maxPrintableLength));
-                lines.push("Decoded output (ASCII): " + bytesToString(decodedString, maxPrintableLength));
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return decodedString;
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 2. [Base64.decode(byte[] input, int flags) -> byte[]]
-            const decodeKey = Base64.decode.overload(
-                "[B",
-                "int"
-            );
-
-            decodeKey.implementation = function (input, flags) {
-                const decodedString = decodeKey.call(this, input, flags);
-                const lines = [];
-
-                let flagString = base64FlagsToString(flags);
-
-                lines.push("2. [Base64.decode(byte[] input, int flags) -> byte[]]");
-                lines.push("Encoded input (HEX): " + bytesToHex(input, maxPrintableLength));
-                lines.push("Encoded input (ASCII): " + bytesToString(input, maxPrintableLength));
-                lines.push("Flags (Numerical): " + flags);
-                lines.push("Flags (String): " + flagString);
-
-                lines.push("Decoded output (HEX): " + bytesToHex(decodedString, maxPrintableLength));
-                lines.push("Decoded output (ASCII): " + bytesToString(decodedString, maxPrintableLength));
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return decodedString;
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 3. [Base64.decode(byte[] input, int offset, int len, int flags) -> byte[]]
-            const decodeKey = Base64.decode.overload(
-                "[B",
-                "int",
-                "int",
-                "int"
-            );
-
-            decodeKey.implementation = function (input, offset, len, flags) {
-                const decodedString = decodeKey.call(this, input, offset, len, flags);
-                const lines = [];
-
-                let flagString = base64FlagsToString(flags);
-
-                lines.push("3. [Base64.decode(byte[] input, int offset, int len, int flags) -> byte[]]");
-                lines.push("Encoded input (HEX): " + bytesToHexRange(input, offset, len, maxPrintableLength));
-                lines.push("Encoded input (ASCII): " + bytesToStringRange(input, offset, len, maxPrintableLength));
-                lines.push("Flags (Numerical): " + flags);
-                lines.push("Flags (String): " + flagString);
-
-                lines.push("Decoded output (HEX): " + bytesToHex(decodedString, maxPrintableLength));
-                lines.push("Decoded output (ASCII): " + bytesToString(decodedString, maxPrintableLength));
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return decodedString;
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        //  -------------------------
-        // | SecretKeySpec overloads |
-        //  -------------------------
-        const SecretKeySpec = Java.use("javax.crypto.spec.SecretKeySpec");
-
-        //  -------------------------------
-        // | SecretKeySpec.$init overloads |
-        //  -------------------------------
-        try { // 1. [SecretKeySpec.$init(byte[] key, String algorithm)] -> void
-            const initKeySpec = SecretKeySpec.$init.overload(
-                "[B",
-                "java.lang.String"
-            );
-
-            initKeySpec.implementation = function (key, algorithm) {
-                initKeySpec.call(this, key, algorithm);
-                const lines = [];
-
-                lines.push("1. [SecretKeySpec.$init(byte[] key, String algorithm) -> void]");
-                lines.push("Key: " + bytesToHex(key, maxPrintableLength));
-                lines.push("Algorithm: " + algorithm);
-
-                lines.push("getAlgorithm(): " + this.getAlgorithm());
-                lines.push("getFormat(): " + this.getFormat());
-
-                const encoded = this.getEncoded();
-                lines.push("getEncoded() length: " + encoded.length);
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 2. [SecretKeySpec.$init(byte[] key, int offset, int len, String algorithm) -> void]
-            const initKeySpec = SecretKeySpec.$init.overload(
-                "[B",
-                "int",
-                "int",
-                "java.lang.String"
-            );
-
-            initKeySpec.implementation = function (key, offset, len, algorithm) {
-                initKeySpec.call(this, key, offset, len, algorithm);
-                const lines = [];
-
-                lines.push("2. [SecretKeySpec.$init(byte[] key, int offset, int len, String algorithm) -> void]");
-                lines.push("Key: " + bytesToHex(key, maxPrintableLength));
-                lines.push("Offset: " + offset);
-                lines.push("Length: " + len);
-                lines.push("Algorithm: " + algorithm);
-
-                lines.push("getAlgorithm(): " + this.getAlgorithm());
-                lines.push("getFormat(): " + this.getFormat());
-
-                const encoded = this.getEncoded();
-                lines.push("getEncoded() length: " + encoded.length);
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        //  ---------------------------
-        // | IvParameterSpec overloads |
-        //  ---------------------------
-        const IvParameterSpec = Java.use('javax.crypto.spec.IvParameterSpec');
-
-        //  ---------------------------------
-        // | IvParameterSpec.$init overloads |
-        //  ---------------------------------
-        try { // 1. [IvParameterSpec(byte[] iv) -> void]
-            const initIvKey = IvParameterSpec.$init.overload(
-                "[B"
-            );
-
-            initIvKey.implementation = function (iv) {
-                initIvKey.call(this, iv);
-                const lines = [];
-
-                lines.push("1. [IvParameterSpec(byte[] iv) -> void]");
-                lines.push("IV: " + bytesToHex(iv, maxPrintableLength));
-
-                const storedIv = this.getIV();
-
-                lines.push("Constructed IV length: " + storedIv.length);
-                lines.push("Constructed IV: " + bytesToHex(storedIv, maxPrintableLength));
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 2. [IvParameterSpec(byte[] iv, int offset, int len) -> void]
-            const initIvKey = IvParameterSpec.$init.overload(
-                "[B",
-                "int",
-                "int"
-            );
-
-            initIvKey.implementation = function (iv, offset, len) {
-                initIvKey.call(this, iv, offset, len);
-                const lines = [];
-
-                lines.push("2. [IvParameterSpec(byte[] iv, int offset, int len) -> void]");
-                lines.push("IV: " + bytesToHex(iv, maxPrintableLength));
-                lines.push("Offset: " + offset);
-                lines.push("Length: " + len);
-
-                const storedIv = this.getIV();
-
-                lines.push("Constructed IV length: " + storedIv.length);
-                lines.push("Constructed IV: " + bytesToHexRange(storedIv, offset, len, maxPrintableLength));
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        //  -------------------------
-        // | MessageDigest overloads |
-        //  -------------------------
-        const MessageDigest = Java.use("java.security.MessageDigest");
-
-        //  ---------------------------------------
-        // | MessageDigest.getInstance() overloads |
-        //  ---------------------------------------
-        try { // 1. [MessageDigest.getInstance(String algorithm) -> static MessageDigest]
-            const digestKey = MessageDigest.getInstance.overload(
-                "java.lang.String"
-            );
-
-            digestKey.implementation = function (algorithm) {
-                const result = digestKey.call(MessageDigest, algorithm);
-                const lines = [];
-
-                lines.push("1. [MessageDigest.getInstance(String algorithm) -> static MessageDigest]");
-                lines.push("Algorithm: " + algorithm);
-                lines.push("Object (returned): " + result);
-                lines.push("Algorithm (returned): " + result.getAlgorithm());
-                lines.push("Provider: " + result.getProvider());
-                lines.push("Digest length: " + result.getDigestLength());
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return result;
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 2. [MessageDigest.getInstance(String algorithm, Provider provider) -> static MessageDigest]
-            const digestKey = MessageDigest.getInstance.overload(
-                "java.lang.String",
-                "java.security.Provider"
-            );
-
-            digestKey.implementation = function (algorithm, provider) {
-                const result = digestKey.call(MessageDigest, algorithm, provider);
-                const lines = [];
-
-                lines.push("2. [MessageDigest.getInstance(String algorithm, Provider provider) -> static MessageDigest]");
-                lines.push("Algorithm: " + algorithm);
-                lines.push("Object (returned): " + result);
-                lines.push("Algorithm (returned): " + result.getAlgorithm());
-                lines.push("Provider: " + provider);
-                lines.push("Digest length: " + result.getDigestLength());
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return result;
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 3. [MessageDigest.getInstance(String algorithm, String provider) -> static MessageDigest]
-            const digestKey = MessageDigest.getInstance.overload(
-                "java.lang.String",
-                "java.lang.String"
-            );
-
-            digestKey.implementation = function (algorithm, provider) {
-                const result = digestKey.call(MessageDigest, algorithm, provider);
-                const lines = [];
-
-                lines.push("3. [MessageDigest.getInstance(String algorithm, String provider) -> static MessageDigest]");
-                lines.push("Algorithm: " + algorithm);
-                lines.push("Object (returned): " + result);
-                lines.push("Algorithm (returned): " + result.getAlgorithm());
-                lines.push("Provider: " + provider.toString());
-                lines.push("Digest length: " + result.getDigestLength());
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return result;
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        //  ----------------------------------
-        // | MessageDigest.digest() overloads |
-        //  ----------------------------------
-        try { // 1. [MessageDigest.digest() -> byte[]]
-            const digestKey = MessageDigest.digest.overload();
-
-            digestKey.implementation = function () {
-                const result = digestKey.call(this);
-                const lines = [];
-
-                lines.push("1. [MessageDigest.digest() -> byte[]]");
-                lines.push("Digested hash: " + bytesToHex(result, maxPrintableLength));
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return result;
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 2. [MessageDigest.digest(byte[] input) -> byte[]]
-            const digestKey = MessageDigest.digest.overload(
-                "[B"
-            );
-
-            digestKey.implementation = function (input) {
-                const result = digestKey.call(this, input);
-                const lines = [];
-
-                lines.push("2. [MessageDigest.digest(byte[] input) -> byte[]]");
-                lines.push("Input (HEX): " + bytesToHex(input, maxPrintableLength));
-                lines.push("Input (ASCII): " + bytesToString(input, maxPrintableLength));
-                lines.push("Digested hash: " + bytesToHex(result, maxPrintableLength));
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return result;
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 3. [MessageDigest.digest(byte[] buf, int offset, int len) -> int]
-            const digestKey = MessageDigest.digest.overload(
-                "[B",
-                "int",
-                "int"
-            );
-
-            digestKey.implementation = function (outputBuf, offset, len) {
-                const result = digestKey.call(this, outputBuf, offset, len);
-                const lines = [];
-
-                lines.push("3. [MessageDigest.digest(byte[] buf, int offset, int len) -> int]");
-                lines.push("Offset: " + offset);
-                lines.push("Allocated bytes in buffer: " + len);
-                lines.push("Bytes written: " + result);
-                lines.push("Digested hash: " + bytesToHexRange(outputBuf, offset, result, maxPrintableLength));
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return result;
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        //  ----------------------------------
-        // | MessageDigest.update() overloads |
-        //  ----------------------------------
-        try { // 1. [MessageDigest.update(byte input) -> void]
-            const digestKey = MessageDigest.update.overload(
-                "byte"
-            );
-
-            digestKey.implementation = function (input) {
-                digestKey.call(this, input);
-
-                const lines = [];
-
-                lines.push("1. [MessageDigest.update(byte input) -> void]");
-                lines.push("Input byte: " + input);
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 2. [MessageDigest.update(byte[] input) -> void]
-            const digestKey = MessageDigest.update.overload(
-                "[B"
-            );
-
-            digestKey.implementation = function (input) {
-                digestKey.call(this, input);
-
-                const lines = [];
-
-                lines.push("2. [MessageDigest.update(byte[] input) -> void]");
-                lines.push("Input bytes (HEX): " + bytesToHex(input, maxPrintableLength));
-                lines.push("Input bytes (ASCII): " + bytesToString(input, maxPrintableLength));
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 3. [MessageDigest.update(byte[] input, int offset, int len) -> void]
-            const digestKey = MessageDigest.update.overload(
-                "[B",
-                "int",
-                "int"
-            );
-
-            digestKey.implementation = function (input, offset, len) {
-                digestKey.call(this, input, offset, len);
-
-                const lines = [];
-
-                lines.push("3. [MessageDigest.update(byte[] input, int offset, int len) -> void]");
-                lines.push("Offset (start position): " + offset);
-                lines.push("Number of bytes to use from offset: " + len);
-                lines.push("Input byte array (HEX): " + bytesToHexRange(input, offset, len, maxPrintableLength));
-                lines.push("Input byte array (ASCII): " + bytesToStringRange(input, offset, len, maxPrintableLength));
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        //  ---------------
-        // | Mac overloads |
-        //  ---------------
-        const Mac = Java.use("javax.crypto.Mac");
-
-        //  ----------------------
-        // | Mac.init() overloads |
-        //  ----------------------
-        try { // 1. [Mac.init(Key key) -> void]
-            const macKey = Mac.init.overload(
-                "java.security.Key"
-            );
-
-            macKey.implementation = function (key) {
-                macKey.call(this, key);
-
-                const lines = [];
-
-                lines.push("1. [Mac.init(Key key) -> void]");
-                lines.push("Provider: " + this.getProvider());
-                lines.push("Mac length: " + this.getMacLength());
-
-                lines.push(logKey(key));
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 2. [Mac.init(Key key, AlgorithmParameterSpec params) -> void]
-            const macKey = Mac.init.overload(
-                "java.security.Key",
-                "java.security.spec.AlgorithmParameterSpec"
-            );
-
-            macKey.implementation = function (key, params) {
-                macKey.call(this, key, params);
-
-                const lines = [];
-
-                lines.push("2. [Mac.init(Key key, AlgorithmParameterSpec params) -> void]");
-                lines.push("Algorithm: " + key.getAlgorithm());
-                lines.push("Provider: " + this.getProvider());
-                lines.push("Mac length: " + this.getMacLength());
-
-                lines.push(logKey(key));
-                lines.push(logAlgorithmParameterSpec(params));
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        //  ------------------------
-        // | Mac.update() overloads |
-        //  ------------------------
-        try { // 1. [Mac.update(byte input) -> void]
-            const macKey = Mac.update.overload(
-                "byte"
-            );
-
-            macKey.implementation = function (input) {
-                macKey.call(this, input);
-
-                const lines = [];
-
-                lines.push("1. [Mac.update(byte input) -> void]");
-                lines.push("Input byte: " + input);
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 2. [Mac.update(byte[] input) -> void]
-            const macKey = Mac.update.overload(
-                "[B"
-            );
-
-            macKey.implementation = function (input) {
-                macKey.call(this, input);
-
-                const lines = [];
-
-                lines.push("2. [Mac.update(byte[] input) -> void]");
-                lines.push("Input bytes (HEX): " + bytesToHex(input, maxPrintableLength));
-                lines.push("Input bytes (ASCII): " + bytesToString(input, maxPrintableLength));
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        try { // 3. [MessageDigest.update(byte[] input, int offset, int len) -> void]
-            const macKey = Mac.update.overload(
-                "[B",
-                "int",
-                "int"
-            );
-
-            macKey.implementation = function (input, offset, len) {
-                macKey.call(this, input, offset, len);
-
-                const lines = [];
-
-                lines.push("3. [Mac.update(byte[] input, int offset, int len) -> void]");
-                lines.push("Offset (start position): " + offset);
-                lines.push("Number of bytes to use from offset: " + len);
-                lines.push("Input byte array (HEX): " + bytesToHexRange(input, offset, len, maxPrintableLength));
-                lines.push("Input byte array (ASCII): " + bytesToStringRange(input, offset, len, maxPrintableLength));
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-            };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-
-        //  -------------------------
-        // | Mac.doFinal() overloads |
-        //  -------------------------
-        try { // 1. [Mac.doFinal() -> byte[]]
-            const macKey = Mac.doFinal.overload();
-
-            macKey.implementation = function () {
-                const output = macKey.call(this);
-                const lines = [];
-
-                lines.push("1. [Mac.doFinal() -> byte[]]")
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    //  -------------------------
+    // | Mac.doFinal() overloads |
+    //  -------------------------
+    try { // 1. [Mac.doFinal() -> byte[]]
+        const macKey = Mac.doFinal.overload();
+
+        macKey.implementation = function () {
+            const output = macKey.call(this);
+            const objectId = getObjectId("Mac", this);
+
+            let state = macStates.get(objectId);
+
+            if (state !== undefined) {
+                state.finalOverload = "[Mac.doFinal() -> byte[]]";
+                state.bytesWritten = output.length;
 
                 if (output !== null) {
-                    lines.push("Output (HEX): " + bytesToHex(output, maxPrintableLength));
-                    lines.push("Output (ASCII): " + bytesToString(output, maxPrintableLength));
+                    state.output = bytesToHex(output, maxPrintableLength);
                 } else {
-                    lines.push("Output: <null>");
+                    state.output = "<undefined>";
                 }
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return output;
             };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
 
-        try { // 2. [Mac.doFinal(byte[] input) -> byte[]]
-            const macKey = Mac.doFinal.overload(
-                "[B"
-            );
+            logging(state);
 
-            macKey.implementation = function (input) {
-                const output = macKey.call(this, input);
-                const lines = [];
+            return output;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
 
-                lines.push("2. [Mac.doFinal(byte[] input) -> byte[]]")
-                lines.push("Input (HEX): " + bytesToHex(input, maxPrintableLength));
-                lines.push("Input (ASCII): " + bytesToString(input, maxPrintableLength));
+    try { // 2. [Mac.doFinal(byte[] input) -> byte[]]
+        const macKey = Mac.doFinal.overload(
+            "[B"
+        );
+
+        macKey.implementation = function (input) {
+            const output = macKey.call(this, input);
+            const objectId = getObjectId("Mac", this);
+
+            let state = macStates.get(objectId);
+
+            if (state !== undefined) {
+                state.finalOverload = "[Mac.doFinal(byte[] input) -> byte[]]";
+                state.bytesWritten = output.length;
+                state.input = bytesToString(input, maxPrintableLength);
 
                 if (output !== null) {
-                    lines.push("Output (HEX): " + bytesToHex(output, maxPrintableLength));
-                    lines.push("Output (ASCII): " + bytesToString(output, maxPrintableLength));
+                    state.output = bytesToHex(output, maxPrintableLength);
                 } else {
-                    lines.push("Output: <null>");
+                    state.output = "<undefined>";
                 }
-
-                //lines.push(traceStack());
-
-                console.log(lines.join("\n"));
-
-                return output;
             };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
 
-        try { // 3. [Mac.doFinal(byte[] output, int outOffset) -> void]
-            const macKey = Mac.doFinal.overload(
-                "[B",
-                "int"
-            );
+            logging(state);
 
-            macKey.implementation = function (output, outputOffset) {
-                macKey.call(this, output, outputOffset);
+            return output;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
 
-                const lines = [];
+    try { // 3. [Mac.doFinal(byte[] output, int outOffset) -> void]
+        const macKey = Mac.doFinal.overload(
+            "[B",
+            "int"
+        );
 
-                lines.push("3. [Mac.doFinal(byte[] output, int outputOffset) -> void]");
+        macKey.implementation = function (output, outputOffset) {
+            macKey.call(this, output, outputOffset);
+            const objectId = getObjectId("Mac", this);
 
-                lines.push("Bytes written: " + output.length);
-                lines.push("Output (HEX): " + bytesToHexRange(output, outputOffset, output.length, maxPrintableLength));
-                lines.push("Output (ASCII): " + bytesToStringRange(output, outputOffset, output.length, maxPrintableLength));
+            let state = macStates.get(objectId);
 
-                //lines.push(traceStack());
+            if (state !== undefined) {
+                state.finalOverload = "[Mac.doFinal(byte[] output, int outOffset) -> byte[]]";
+                state.bytesWritten = output.length;
 
-                console.log(lines.join("\n"));
-
-                return outputLen;
+                if (output !== null) {
+                    state.output = bytesToHex(output, outputOffset, output.length, maxPrintableLength);
+                } else {
+                    state.output = "<undefined>";
+                }
             };
-        } catch (e) {
-            console.log("[+] Error message: " + e.message);
-        }
-    });
-}, 0);
+
+            logging(state);
+
+            return outputLen;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    //  ------------------
+    // | Base64 overloads |
+    //  ------------------
+    const Base64 = Java.use("android.util.Base64");
+
+    //  -------------------------
+    // | Base64.encode overloads |
+    //  -------------------------
+    try { // 1. [Base64.encode(byte[] input, int flags) -> byte[]]
+        const encodeKey = Base64.encode.overload(
+            "[B",
+            "int"
+        );
+
+        encodeKey.implementation = function (input, flags) {
+            const encodedString = encodeKey.call(this, input, flags);
+            const lines = [];
+
+            let flagString = base64FlagsToString(flags);
+
+            lines.push("1. [Base64.encode(byte[] input, int flags) -> byte[]]");
+            lines.push("Input (HEX): " + bytesToHex(input, maxPrintableLength));
+            //lines.push("Input (ASCII): " + bytesToString(input, maxPrintableLength));
+            lines.push("Input length: " + input.length);
+            lines.push("Flags (Numerical): " + flags);
+            lines.push("Flags (String): " + flagString);
+
+            //lines.push("Encoded string (HEX): " + bytesToHex(encodedString, maxPrintableLength));
+            lines.push("Encoded string (ASCII): " + bytesToString(encodedString, maxPrintableLength));
+            lines.push("Encoded string length: " + encodedString.length);
+
+            //lines.push(traceStack());
+
+            console.log(lines.join("\n"));
+
+            return encodedString;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 2. [Base64.encode(byte[] input, int offset, int len, int flags) -> byte[]]
+        const encodeKey = Base64.encode.overload(
+            "[B",
+            "int",
+            "int",
+            "int"
+        );
+
+        encodeKey.implementation = function (input, offset, len, flags) {
+            const encodedString = encodeKey.call(this, input, offset, len, flags);
+            const lines = [];
+
+            let flagString = base64FlagsToString(flags);
+
+            lines.push("2. [Base64.encode(byte[input, int offset, int len, int flags]) -> byte[]]");
+            lines.push("Input (HEX): " + bytesToHexRange(input, offset, len, maxPrintableLength));
+            //lines.push("Input (ASCII): " + bytesToStringRange(input, offset, len, maxPrintableLength));
+            lines.push("Input length: " + input.length);
+            lines.push("Input offset: " + offset);
+            lines.push("Input length: " + len);
+            lines.push("Flags (Numerical): " + flags);
+            lines.push("Flags (String): " + flagString);
+
+            //lines.push("Encoded string (HEX): " + bytesToHex(encodedString, maxPrintableLength));
+            lines.push("Encoded string (ASCII): " + bytesToString(encodedString, maxPrintableLength));
+            lines.push("Encoded string length: " + encodedString.length);
+
+            //lines.push(traceStack());
+
+            console.log(lines.join("\n"));
+
+            return encodedString;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    //  ---------------------------------
+    // | Base64.encodeToString overloads |
+    //  ---------------------------------
+    try { // 1. [Base64.encodeToString(byte[] input, int flags) -> java.lang.String]
+        const encodeKey = Base64.encodeToString.overload(
+            "[B",
+            "int"
+        );
+
+        encodeKey.implementation = function (input, flags) {
+            const encodedString = encodeKey.call(this, input, flags);
+            const lines = [];
+
+            let flagString = base64FlagsToString(flags);
+
+            lines.push("1. [Base64.encodeToString(byte[] input, int flags) -> java.lang.String]");
+            lines.push("Input (HEX): " + bytesToHex(input, maxPrintableLength));
+            //lines.push("Input (ASCII): " + bytesToString(input, maxPrintableLength));
+            lines.push("Input length: " + input.length);
+            lines.push("Flags (Numerical): " + flags);
+            lines.push("Flags (String): " + flagString);
+
+            lines.push("Encoded string: " + bytesToString(encodedString, maxPrintableLength));
+            lines.push("Encoded string length: " + encodedString.length);
+
+            //lines.push(traceStack());
+
+            console.log(lines.join("\n"));
+
+            return encodedString;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 2. [Base64.encodeToString(byte[] input, int offset, int len, int flags) -> java.lang.String]
+        const encodeKey = Base64.encodeToString.overload(
+            "[B",
+            "int",
+            "int",
+            "int"
+        );
+
+        encodeKey.implementation = function (input, offset, len, flags) {
+            const encodedString = encodeKey.call(this, input, offset, len, flags);
+            const lines = [];
+
+            let flagString = base64FlagsToString(flags);
+
+            lines.push("2. [Base64.encodeToString(byte[] input, int offset, int len, int flags]) -> java.lang.String]");
+            lines.push("Input (HEX): " + bytesToHexRange(input, offset, len, maxPrintableLength));
+            //lines.push("Input (ASCII): " + bytesToStringRange(input, offset, len, maxPrintableLength));
+            lines.push("Input length: " + input.length);
+            lines.push("Input offset: " + offset);
+            lines.push("Input length: " + len);
+            lines.push("Flags (Numerical): " + flags);
+            lines.push("Flags (String): " + flagString);
+
+            lines.push("Encoded string: " + bytesToString(encodedString, maxPrintableLength));
+            lines.push("Encoded string length: " + encodedString.length);
+
+            //lines.push(traceStack());
+
+            console.log(lines.join("\n"));
+
+            return encodedString;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    //  -------------------------
+    // | Base64.decode overloads |
+    //  -------------------------
+    try { // 1. [Base64.decode(java.lang.String str, int flags) -> byte[]
+        const decodeKey = Base64.decode.overload(
+            "java.lang.String",
+            "int"
+        );
+
+        decodeKey.implementation = function (str, flags) {
+            const decodedString = decodeKey.call(this, str, flags);
+            const lines = [];
+
+            let flagString = base64FlagsToString(flags);
+
+            lines.push("1. [Base64.decode(java.lang.String str, int flags) -> byte[]]");
+            lines.push("Encoded input: " + str);
+            lines.push("Flags (Numerical): " + flags);
+            lines.push("Flags (String): " + flagString);
+
+            //lines.push("Decoded output (HEX): " + bytesToHex(decodedString, maxPrintableLength));
+            lines.push("Decoded output (ASCII): " + bytesToString(decodedString, maxPrintableLength));
+
+            //lines.push(traceStack());
+
+            console.log(lines.join("\n"));
+
+            return decodedString;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 2. [Base64.decode(byte[] input, int flags) -> byte[]]
+        const decodeKey = Base64.decode.overload(
+            "[B",
+            "int"
+        );
+
+        decodeKey.implementation = function (input, flags) {
+            const decodedString = decodeKey.call(this, input, flags);
+            const lines = [];
+
+            let flagString = base64FlagsToString(flags);
+
+            lines.push("2. [Base64.decode(byte[] input, int flags) -> byte[]]");
+            //lines.push("Encoded input (HEX): " + bytesToHex(input, maxPrintableLength));
+            lines.push("Encoded input (ASCII): " + bytesToString(input, maxPrintableLength));
+            lines.push("Flags (Numerical): " + flags);
+            lines.push("Flags (String): " + flagString);
+
+            //lines.push("Decoded output (HEX): " + bytesToHex(decodedString, maxPrintableLength));
+            lines.push("Decoded output (ASCII): " + bytesToString(decodedString, maxPrintableLength));
+
+            //lines.push(traceStack());
+
+            console.log(lines.join("\n"));
+
+            return decodedString;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+
+    try { // 3. [Base64.decode(byte[] input, int offset, int len, int flags) -> byte[]]
+        const decodeKey = Base64.decode.overload(
+            "[B",
+            "int",
+            "int",
+            "int"
+        );
+
+        decodeKey.implementation = function (input, offset, len, flags) {
+            const decodedString = decodeKey.call(this, input, offset, len, flags);
+            const lines = [];
+
+            let flagString = base64FlagsToString(flags);
+
+            lines.push("3. [Base64.decode(byte[] input, int offset, int len, int flags) -> byte[]]");
+            //lines.push("Encoded input (HEX): " + bytesToHexRange(input, offset, len, maxPrintableLength));
+            lines.push("Encoded input (ASCII): " + bytesToStringRange(input, offset, len, maxPrintableLength));
+            lines.push("Flags (Numerical): " + flags);
+            lines.push("Flags (String): " + flagString);
+
+            //lines.push("Decoded output (HEX): " + bytesToHex(decodedString, maxPrintableLength));
+            lines.push("Decoded output (ASCII): " + bytesToString(decodedString, maxPrintableLength));
+
+            //lines.push(traceStack());
+
+            console.log(lines.join("\n"));
+
+            return decodedString;
+        };
+    } catch (e) {
+        console.log("[+] Error message: " + e.message);
+    }
+});
