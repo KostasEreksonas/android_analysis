@@ -1,6 +1,6 @@
 'use strict';
 
-const maxPrintableLength = 128; // Limit length of logged hex and ascii strings
+const maxPrintableLength = 48; // Limit length of logged hex and ascii strings
 const Log = Java.use("android.util.Log");
 const Throwable = Java.use("java.lang.Throwable");
 
@@ -200,28 +200,6 @@ function describeOpmode(opmode) {
     }
 }
 
-function byteArraySlice(src, offset, len) {
-    // Slice a subset of a given array
-    const result = [];
-
-    for (let i = offset; i < offset + len; i++) {
-        result.push(src[i]);
-    }
-
-    return result;
-}
-
-function wrappedKeyTypeToString(type) {
-    if (type === 1)
-        return "PUBLIC_KEY";
-    if (type === 2)
-        return "PRIVATE_KEY";
-    if (type === 3)
-        return "SECRET_KEY";
-
-    return "UNKNOWN(" + type + ")";
-}
-
 function base64FlagsToArray(flags) {
     const flagsToString = [];
 
@@ -264,7 +242,8 @@ function getObjectId(name, obj) {
 
 function logging(state) {
     const keys = Object.keys(state);
-    let final = "";
+    let final = "\n";
+
     for (const key of keys) {
         try {
             final += key + ": " + state[key] + "\n";
@@ -283,6 +262,10 @@ function logging(state) {
 Java.perform(function () {
     const cipherStates = new Map();
     const macStates = new Map();
+
+    let decodeBase64Counter = 0;
+    let encodeBase64Counter = 0;
+    let encodeToStringBase64Counter = 0;
 
     //  ------------------
     // | Cipher overloads |
@@ -305,7 +288,7 @@ Java.perform(function () {
             const state = {
                 objectId: objectId,
                 timestamp: Date.now(),
-                instanceOverload: "[Cipher.getInstance(java.lang.String) -> static Cipher]",
+                overloads: ["[Cipher.getInstance(java.lang.String) -> static Cipher]"],
                 transformation: transformation,
                 algorithm: cipher.getAlgorithm(),
                 runtimeClass: cipher.getClass().getName(),
@@ -313,7 +296,10 @@ Java.perform(function () {
                 providerVersion: provider.getVersion(),
                 providerInfo: provider.getInfo(),
                 providerClass: provider.getClass().getName(),
-                updateCount: 0
+                updateInputs: [],
+                updateInputsLen: [],
+                updateOutputs: [],
+                updateOutputsLen: []
             };
 
             cipherStates.set(objectId, state);
@@ -338,7 +324,7 @@ Java.perform(function () {
             const state = {
                 objectId: objectId,
                 timestamp: Date.now(),
-                instanceOverload: "[Cipher.getInstance(java.lang.String, java.lang.String) -> static Cipher]",
+                overloads: ["[Cipher.getInstance(java.lang.String, java.lang.String) -> static Cipher]"],
                 transformation: transformation,
                 algorithm: cipher.getAlgorithm(),
                 runtimeClass: cipher.getClass().getName(),
@@ -346,7 +332,10 @@ Java.perform(function () {
                 providerVersion: cipherProvider.getVersion(),
                 providerInfo: cipherProvider.getInfo(),
                 providerClass: cipherProvider.getClass().getName(),
-                updateCount: 0
+                updateInputs: [],
+                updateInputsLen: [],
+                updateOutputs: [],
+                updateOutputsLen: []
             };
 
             cipherStates.set(objectId, state);
@@ -370,7 +359,7 @@ Java.perform(function () {
             const state = {
                 objectId: objectId,
                 timestamp: Date.now(),
-                instanceOverload: "[Cipher.getInstance(java.lang.String, java.security.Provider) -> static Cipher]",
+                overloads: ["[Cipher.getInstance(java.lang.String, java.security.Provider) -> static Cipher]"],
                 transformation: transformation,
                 algorithm: cipher.getAlgorithm(),
                 runtimeClass: cipher.getClass().getName(),
@@ -378,7 +367,10 @@ Java.perform(function () {
                 providerVersion: provider.getVersion(),
                 providerInfo: provider.getInfo(),
                 providerClass: provider.getClass().getName(),
-                updateCount: 0
+                updateInputs: [],
+                updateInputsLen: [],
+                updateOutputs: [],
+                updateOutputsLen: []
             };
 
             cipherStates.set(objectId, state);
@@ -406,11 +398,21 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                state.initOverload = "[Cipher.init(int opmode, Certificate certificate) -> void]";
+                // Clear state on each reuse of Cipher object
+                state.overloads = ["[Cipher.init(int opmode, Certificate certificate) -> void]"];
+                state.updateInputs = [];
+                state.updateInputsLen = [];
+                state.updateOutputs = [];
+                state.updateOutputsLen = [];
+                delete state.input;
+                delete state.output;
+                delete state.bytesWritten;
+
+                // Init information
                 state.opmode = opmode;
                 state.opmodeString = describeOpmode(opmode);
                 state.certificateType = certificate.getType();
-                state.publicKey = certificate.getPublicKey();
+                state.publicKey = bytesToHex(certificate.getPublicKey().getEncoded(), maxPrintableLength);
 
                 try {
                     state.blockSize = this.getBlockSize();
@@ -438,11 +440,21 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                state.initOverload = "[Cipher.init(int opmode, Certificate certificate, SecureRandom random) -> void]";
+                // Clear state on each reuse of Cipher object
+                state.overloads = ["[Cipher.init(int opmode, Certificate certificate, SecureRandom random) -> void]"];
+                state.updateInputs = [];
+                state.updateInputsLen = [];
+                state.updateOutputs = [];
+                state.updateOutputsLen = [];
+                delete state.input;
+                delete state.output;
+                delete state.bytesWritten;
+
+                // Init information
                 state.opmode = opmode;
                 state.opmodeString = describeOpmode(opmode);
                 state.certificateType = certificate.getType();
-                state.publicKey = certificate.getPublicKey();
+                state.publicKey = bytesToHex(certificate.getPublicKey().getEncoded(), maxPrintableLength);
 
                 try {
                     state.blockSize = this.getBlockSize();
@@ -469,6 +481,17 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
+                // Clear state on each reuse of Cipher object
+                state.overloads = ["[Cipher.init(int opmode, Key key) -> void]"];
+                state.updateInputs = [];
+                state.updateInputsLen = [];
+                state.updateOutputs = [];
+                state.updateOutputsLen = [];
+                delete state.input;
+                delete state.output;
+                delete state.bytesWritten;
+
+                // Init information
                 state.opmode = opmode;
                 state.opmodeString = describeOpmode(opmode);
 
@@ -500,7 +523,17 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                state.initOverload = "[Cipher.init(int opmode, Key key, AlgorithmParameters params) -> void]";
+                // Clear state on each reuse of Cipher object
+                state.overloads = ["[Cipher.init(int opmode, Key key, AlgorithmParameters params) -> void]"];
+                state.updateInputs = [];
+                state.updateInputsLen = [];
+                state.updateOutputs = [];
+                state.updateOutputsLen = [];
+                delete state.input;
+                delete state.output;
+                delete state.bytesWritten;
+
+                // Init information
                 state.opmode = opmode;
                 state.opmodeString = describeOpmode(opmode);
 
@@ -533,7 +566,17 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                state.initOverload = "[Cipher.init(int opmode, Key key, AlgorithmParameterSpec params) -> void]";
+                // Clear state on each reuse of Cipher object
+                state.overloads = ["[Cipher.init(int opmode, Key key, AlgorithmParameterSpec params) -> void]"];
+                state.updateInputs = [];
+                state.updateInputsLen = [];
+                state.updateOutputs = [];
+                state.updateOutputsLen = [];
+                delete state.input;
+                delete state.output;
+                delete state.bytesWritten;
+
+                // Init information
                 state.opmode = opmode;
                 state.opmodeString = describeOpmode(opmode);
 
@@ -567,7 +610,17 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                state.initOverload = "[Cipher.init(int opmode, Key key, AlgorithmParameterSpec params, SecureRandom random) -> void]";
+                // Clear state on each reuse of Cipher object
+                state.overloads = ["[Cipher.init(int opmode, Key key, AlgorithmParameterSpec params, SecureRandom random) -> void]"];
+                state.updateInputs = [];
+                state.updateInputsLen = [];
+                state.updateOutputs = [];
+                state.updateOutputsLen = [];
+                delete state.input;
+                delete state.output;
+                delete state.bytesWritten;
+
+                // Init information
                 state.opmode = opmode;
                 state.opmodeString = describeOpmode(opmode);
 
@@ -603,7 +656,17 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                state.initOverload = "[Cipher.init(int opmode, Key key, AlgorithmParameters params, SecureRandom random) -> void]";
+                // Clear state on each reuse of Cipher object
+                state.overloads = ["[Cipher.init(int opmode, Key key, AlgorithmParameters params, SecureRandom random) -> void]"];
+                state.updateInputs = [];
+                state.updateInputsLen = [];
+                state.updateOutputs = [];
+                state.updateOutputsLen = [];
+                delete state.input;
+                delete state.output;
+                delete state.bytesWritten;
+
+                // Init information
                 state.opmode = opmode;
                 state.opmodeString = describeOpmode(opmode);
 
@@ -638,7 +701,17 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                state.initOverload = "[Cipher.init(int opmode, Key key, SecureRandom random) -> void]";
+                // Clear state on each reuse of Cipher object
+                state.overloads = ["[Cipher.init(int opmode, Key key, SecureRandom random) -> void]"];
+                state.updateInputs = [];
+                state.updateInputsLen = [];
+                state.updateOutputs = [];
+                state.updateOutputsLen = [];
+                delete state.input;
+                delete state.output;
+                delete state.bytesWritten;
+
+                // Init information
                 state.opmode = opmode;
                 state.opmodeString = describeOpmode(opmode);
 
@@ -672,8 +745,11 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                state.updateOverload = "[Cipher.update(byte[] input) -> byte[]]";
-                state.updateCount++;
+                state.overloads.push("[Cipher.update(byte[] input) -> byte[]]");
+                state.updateInputs.push(bytesToHex(input, maxPrintableLength));
+                state.updateInputsLen.push(input.length);
+                state.updateOutputs.push(bytesToHex(output, maxPrintableLength));
+                state.updateOutputsLen.push(output.length);
             }
 
             return output;
@@ -696,8 +772,17 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                state.updateOverload = "[Cipher.update(byte[] input, int inputOffset, int inputLen) -> byte[]]";
-                state.updateCount++;
+                state.overloads.push("[Cipher.update(byte[] input, int inputOffset, int inputLen) -> byte[]]");
+                state.updateInputs.push(bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength));
+                state.updateInputsLen.push(inputLen);
+
+                if (output !== null) {
+                    state.updateOutputs.push(bytesToHex(output, maxPrintableLength));
+                    state.updateOutputsLen.push(output.length);
+                } else {
+                    state.updateOutputs.push("");
+                    state.updateOutputsLen.push(0);
+                }
             }
 
             return output;
@@ -721,8 +806,17 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                state.updateOverload = "[Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output) -> int]";
-                state.updateCount++;
+                state.overloads.push("[Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output) -> int]");
+                state.updateInputs.push(bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength));
+                state.updateInputsLen.push(inputLen);
+
+                if (outputLen > 0) {
+                    state.updateOutputs.push(bytesToHexRange(output, 0, outputLen, maxPrintableLength));
+                    state.updateOutputsLen.push(outputLen);
+                } else {
+                    state.updateOutputs.push("");
+                    state.updateOutputsLen.push(0);
+                }
             }
 
             return outputLen;
@@ -747,31 +841,17 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                state.updateOverload = "[Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]";
-                state.updateCount++;
-            }
+                state.overloads.push("[Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]");
+                state.updateInputs.push(bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength));
+                state.updateInputsLen.push(inputLen);
 
-            return outputLen;
-        };
-    } catch (e) {
-        console.log("[+] Error message: " + e.message);
-    }
-
-    try { // 5. [Cipher.update(ByteBuffer input, ByteBuffer output) -> int]
-        const updateKey = Cipher.update.overload(
-            "java.nio.ByteBuffer",
-            "java.nio.ByteBuffer"
-        );
-
-        updateKey.implementation = function (input, output) {
-            const objectId = getObjectId("Cipher", this);
-            const outputLen = updateKey.call(this, input, output);
-
-            let state = cipherStates.get(objectId);
-
-            if (state !== undefined) {
-                state.updateOverload = "[Cipher.update(ByteBuffer input, ByteBuffer output) -> byte[]]";
-                state.updateCount++;
+                if (outputLen > 0) {
+                    state.updateOutputs.push(bytesToHexRange(output, outputOffset, outputLen, maxPrintableLength));
+                    state.updateOutputsLen.push(outputLen);
+                } else {
+                    state.updateOutputs.push("");
+                    state.updateOutputsLen.push(0);
+                }
             }
 
             return outputLen;
@@ -793,7 +873,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (output !== null && state !== undefined) {
-                state.finalOverload = "[Cipher.doFinal() -> byte[]]";
+                state.overloads.push("[Cipher.doFinal() -> byte[]]");
                 state.bytesWritten = output.length;
 
                 if (state.opmode === 1) {
@@ -801,9 +881,13 @@ Java.perform(function () {
                 } else if (state.opmode === 2) {
                     state.output = bytesToString(output, maxPrintableLength);
                 }
+            
+                state.stackTrace = traceStack();
             }
 
-            logging(state);
+            if (state) {
+                logging(state);
+            }
 
             return output;
         };
@@ -823,7 +907,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (output !== null && state !== undefined) {
-                state.finalOverload = "[Cipher.doFinal(byte[] input) -> byte[]]";
+                state.overloads.push("[Cipher.doFinal(byte[] input) -> byte[]]");
                 state.bytesWritten = output.length;
 
                 if (state.opmode === 1) {
@@ -833,9 +917,13 @@ Java.perform(function () {
                     state.input = bytesToHex(input, maxPrintableLength);
                     state.output = bytesToString(output, maxPrintableLength);
                 }
+            
+                state.stackTrace = traceStack();
             }
 
-            logging(state);
+            if (state) {
+                logging(state);
+            }
 
             return output;
         };
@@ -856,7 +944,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (outputLen > 0 && state !== undefined) {
-                state.finalOverload = "[Cipher.doFinal(byte[] output int outputOffset) -> int]";
+                state.overloads.push("[Cipher.doFinal(byte[] output int outputOffset) -> int]");
 
                 state.bytesWritten = output.length;
 
@@ -865,9 +953,13 @@ Java.perform(function () {
                 } else if (state.opmode === 2) {
                     state.output = bytesToStringRange(output, outputOffset, outputLen, maxPrintableLength);
                 }
+            
+                state.stackTrace = traceStack();
             }
 
-            logging(state);
+            if (state) {
+                logging(state);
+            }
 
             return outputLen;
         };
@@ -889,7 +981,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                state.finalOverload = "[Cipher.doFinal(byte[] input int inputOffset, int inputLen) -> byte[]]";
+                state.overloads.push("[Cipher.doFinal(byte[] input int inputOffset, int inputLen) -> byte[]]");
 
                 state.bytesWritten = output.length;
 
@@ -900,9 +992,13 @@ Java.perform(function () {
                     state.input = bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength);
                     state.output = bytesToString(output, maxPrintableLength);
                 }
+            
+                state.stackTrace = traceStack();
             }
 
-            logging(state);
+            if (state) {
+                logging(state);
+            }
 
             return output;
         };
@@ -925,7 +1021,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (outputLen > 0 && state !== undefined) {
-                state.finalOverload = "[Cipher.doFinal(byte[] input int inputOffset, int inputLen, byte[] output) -> int]";
+                state.overloads.push("[Cipher.doFinal(byte[] input int inputOffset, int inputLen, byte[] output) -> int]");
 
                 state.bytesWritten = outputLen;
 
@@ -936,9 +1032,13 @@ Java.perform(function () {
                     state.input = bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength);
                     state.output = bytesToStringRange(output, 0, outputLen, maxPrintableLength);
                 }
+            
+                state.stackTrace = traceStack();
             }
 
-            logging(state);
+            if (state) {
+                logging(state);
+            }
 
             return outputLen;
         };
@@ -962,7 +1062,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (outputLen > 0 && state !== undefined) {
-                state.finalOverload = "[Cipher.doFinal(byte[] input int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]";
+                state.overloads.push("[Cipher.doFinal(byte[] input int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]");
 
                 state.bytesWritten = outputLen;
 
@@ -973,9 +1073,13 @@ Java.perform(function () {
                     state.input = bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength);
                     state.output = bytesToStringRange(output, outputOffset, outputLen, maxPrintableLength);
                 }
+            
+                state.stackTrace = traceStack();
             }
 
-            logging(state);
+            if (state) {
+                logging(state);
+            }
 
             return outputLen;
         };
@@ -998,7 +1102,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                state.finalOverload = "[Cipher.doFinal(ByteBuffer input, ByteBuffer output) -> int]";
+                state.overloads.push("[Cipher.doFinal(ByteBuffer input, ByteBuffer output) -> int]");
                 state.bytesWritten = outputLen;
 
                 if (state.opmode === 1) {
@@ -1008,9 +1112,13 @@ Java.perform(function () {
                     state.input = bytesToHex(duplicateInput, maxPrintableLength);
                     state.output = bytesToString(duplicateOutput, maxPrintableLength);
                 }
+            
+                state.stackTrace = traceStack();
             }
 
-            logging(state);
+            if (state) {
+                logging(state);
+            }
 
             return outputLen;
         };
@@ -1039,7 +1147,7 @@ Java.perform(function () {
             const state = {
                 objectId: objectId,
                 timestamp: Date.now(),
-                instanceOverload: "[Mac.getInstance(java.lang.String) -> static Mac]",
+                overloads: ["[Mac.getInstance(java.lang.String) -> static Mac]"],
                 transformation: transformation,
                 algorithm: instance.getAlgorithm(),
                 runtimeClass: instance.getClass().getName(),
@@ -1073,7 +1181,7 @@ Java.perform(function () {
             const state = {
                 objectId: objectId,
                 timestamp: Date.now(),
-                instanceOverload: "[Mac.getInstance(java.lang.String, java.lang.String) -> static Mac]",
+                overloads: ["[Mac.getInstance(java.lang.String, java.lang.String) -> static Mac]"],
                 transformation: transformation,
                 algorithm: instance.getAlgorithm(),
                 runtimeClass: instance.getClass().getName(),
@@ -1106,7 +1214,7 @@ Java.perform(function () {
             const state = {
                 objectId: objectId,
                 timestamp: Date.now(),
-                instanceOverload: "[Mac.getInstance(java.lang.String, java.security.Provider) -> static Mac]",
+                overloads: ["[Mac.getInstance(java.lang.String, java.security.Provider) -> static Mac]"],
                 transformation: transformation,
                 algorithm: instance.getAlgorithm(),
                 runtimeClass: instance.getClass().getName(),
@@ -1142,13 +1250,15 @@ Java.perform(function () {
             let state = macStates.get(objectId);
 
             if (state !== undefined) {
-                state.initOverload = "[Mac.init(Key key, AlgorithmParameterSpec params) -> void]";
+                state.overloads.push("[Mac.init(Key key) -> void]");
                 state.macLength = this.getMacLength();
 
                 logKey(state, key);
             };
 
-            logging(state);
+            if (state) {
+                logging(state);
+            }
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -1168,7 +1278,7 @@ Java.perform(function () {
             let state = macStates.get(objectId);
 
             if (state !== undefined) {
-                state.initOverload = "[Mac.init(Key key, AlgorithmParameterSpec params) -> void]";
+                state.overloads.push("[Mac.init(Key key, AlgorithmParameterSpec params) -> void]");
                 state.macLength = this.getMacLength();
 
                 logKey(state, key);
@@ -1176,42 +1286,15 @@ Java.perform(function () {
                 logAlgorithmParameterSpec(state, params);
             };
 
-            logging(state);
+            if (state) {
+                logging(state);
+            }
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
     }
 
-    //  ------------------------
-    // | Mac.update() overloads |
-    //  ------------------------
-    /*
-    try { // 1. [Mac.update(byte input) -> void]
-        const macKey = Mac.update.overload(
-            "byte"
-        );
-
-        macKey.implementation = function (input) {
-            macKey.call(this, input);
-
-            const objectId = getObjectId("Mac", this);
-
-            let state = macStates.get(objectId);
-            
-            if (state !== undefined) {
-                state.updateCount++;
-                state.updates.push({
-                    overload: "[Mac.init(byte input) -> void]",
-                    input: bytesToHex(input, maxPrintableLength)
-                });
-            };
-        };
-    } catch (e) {
-        console.log("[+] Error message: " + e.message);
-    }
-    */
-
-    try { // 2. [Mac.update(byte[] input) -> void]
+    try { // 1. [Mac.update(byte[] input) -> void]
         const macKey = Mac.update.overload(
             "[B"
         );
@@ -1224,7 +1307,7 @@ Java.perform(function () {
             let state = macStates.get(objectId);
 
             if (state !== undefined) {
-                state.updateOverload = "[Mac.init(byte[] input) -> void]";
+                state.overloads.push("[Mac.update(byte[] input) -> void]");
                 state.updateCount++;
                 state.updates.push(bytesToHex(input, maxPrintableLength));
             };
@@ -1233,7 +1316,7 @@ Java.perform(function () {
         console.log("[+] Error message: " + e.message);
     }
 
-    try { // 3. [MessageDigest.update(byte[] input, int offset, int len) -> void]
+    try { // 2. [MessageDigest.update(byte[] input, int offset, int len) -> void]
         const macKey = Mac.update.overload(
             "[B",
             "int",
@@ -1248,7 +1331,7 @@ Java.perform(function () {
             let state = macStates.get(objectId);
 
             if (state !== undefined) {
-                state.updateOverload = "[Mac.init(byte[] input, int offset, int len) -> void]";
+                state.overloads.push("[Mac.update(byte[] input, int offset, int len) -> void]");
                 state.updateCount++;
                 state.updates.push(bytesToHexRange(input, offset, len, maxPrintableLength));
             };
@@ -1270,7 +1353,7 @@ Java.perform(function () {
             let state = macStates.get(objectId);
 
             if (state !== undefined) {
-                state.finalOverload = "[Mac.doFinal() -> byte[]]";
+                state.overloads.push("[Mac.doFinal() -> byte[]]");
                 state.bytesWritten = output.length;
 
                 if (output !== null) {
@@ -1280,7 +1363,9 @@ Java.perform(function () {
                 }
             };
 
-            logging(state);
+            if (state) {
+                logging(state);
+            }
 
             return output;
         };
@@ -1300,9 +1385,10 @@ Java.perform(function () {
             let state = macStates.get(objectId);
 
             if (state !== undefined) {
-                state.finalOverload = "[Mac.doFinal(byte[] input) -> byte[]]";
+                state.overloads.push("[Mac.doFinal(byte[] input) -> byte[]]");
                 state.bytesWritten = output.length;
-                state.input = bytesToString(input, maxPrintableLength);
+                state.updates.push(bytesToString(input, maxPrintableLength));
+                state.updateCount++;
 
                 if (output !== null) {
                     state.output = bytesToHex(output, maxPrintableLength);
@@ -1311,7 +1397,9 @@ Java.perform(function () {
                 }
             };
 
-            logging(state);
+            if (state) {
+                logging(state);
+            }
 
             return output;
         };
@@ -1332,19 +1420,20 @@ Java.perform(function () {
             let state = macStates.get(objectId);
 
             if (state !== undefined) {
-                state.finalOverload = "[Mac.doFinal(byte[] output, int outOffset) -> byte[]]";
-                state.bytesWritten = output.length;
+                const macLength = this.getMacLength();
+                state.overloads.push("[Mac.doFinal(byte[] output, int outOffset) -> byte[]]");
+                state.bytesWritten = macLength;
 
                 if (output !== null) {
-                    state.output = bytesToHex(output, outputOffset, output.length, maxPrintableLength);
+                    state.output = bytesToHexRange(output, outputOffset, macLength, maxPrintableLength);
                 } else {
                     state.output = "<undefined>";
                 }
             };
 
-            logging(state);
-
-            return outputLen;
+            if (state) {
+                logging(state);
+            }
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -1366,24 +1455,28 @@ Java.perform(function () {
 
         encodeKey.implementation = function (input, flags) {
             const encodedString = encodeKey.call(this, input, flags);
-            const lines = [];
+            const objectId = "encodeBase64-" + encodeBase64Counter;
+            const flagString = base64FlagsToString(flags);
+            encodeBase64Counter++;
 
-            let flagString = base64FlagsToString(flags);
+            const state = {
+                objectId: objectId,
+                timestamp: Date.now(),
+                overload: "1. [Base64.encode(byte[] input, int flags) -> byte[]]",
+                inputHex: bytesToHex(input, maxPrintableLength),
+                inputString: bytesToString(input, maxPrintableLength),
+                inputLength: input.length,
+                flagNumerical: flags,
+                flagString: flagString,
+                //outputHex: bytesToHex(encodedString, maxPrintableLength),
+                outputString: bytesToString(encodedString, maxPrintableLength),
+                outputLength: encodedString.length,
+                stackTrace: traceStack()
+            }
 
-            lines.push("1. [Base64.encode(byte[] input, int flags) -> byte[]]");
-            lines.push("Input (HEX): " + bytesToHex(input, maxPrintableLength));
-            //lines.push("Input (ASCII): " + bytesToString(input, maxPrintableLength));
-            lines.push("Input length: " + input.length);
-            lines.push("Flags (Numerical): " + flags);
-            lines.push("Flags (String): " + flagString);
-
-            //lines.push("Encoded string (HEX): " + bytesToHex(encodedString, maxPrintableLength));
-            lines.push("Encoded string (ASCII): " + bytesToString(encodedString, maxPrintableLength));
-            lines.push("Encoded string length: " + encodedString.length);
-
-            //lines.push(traceStack());
-
-            console.log(lines.join("\n"));
+            if (state) {
+                logging(state);
+            }
 
             return encodedString;
         };
@@ -1401,26 +1494,30 @@ Java.perform(function () {
 
         encodeKey.implementation = function (input, offset, len, flags) {
             const encodedString = encodeKey.call(this, input, offset, len, flags);
-            const lines = [];
+            const objectId = "encodeBase64-" + encodeBase64Counter;
+            const flagString = base64FlagsToString(flags);
+            encodeBase64Counter++;
 
-            let flagString = base64FlagsToString(flags);
+            const state = {
+                objectId: objectId,
+                timestamp: Date.now(),
+                overload: "2. [Base64.encode(byte[] input, int offset, int len, int flags]) -> byte[]]",
+                inputHex: bytesToHexRange(input, offset, len, maxPrintableLength),
+                inputString: bytesToStringRange(input, offset, len, maxPrintableLength),
+                inputLength: input.length,
+                inputOffset: offset,
+                inputLen: len,
+                flagNumerical: flags,
+                flagString: flagString,
+                outputHex: bytesToHex(encodedString, maxPrintableLength),
+                outputString: bytesToString(encodedString, maxPrintableLength),
+                outputLength: encodedString.length,
+                stackTrace: traceStack()
+            }
 
-            lines.push("2. [Base64.encode(byte[input, int offset, int len, int flags]) -> byte[]]");
-            lines.push("Input (HEX): " + bytesToHexRange(input, offset, len, maxPrintableLength));
-            //lines.push("Input (ASCII): " + bytesToStringRange(input, offset, len, maxPrintableLength));
-            lines.push("Input length: " + input.length);
-            lines.push("Input offset: " + offset);
-            lines.push("Input length: " + len);
-            lines.push("Flags (Numerical): " + flags);
-            lines.push("Flags (String): " + flagString);
-
-            //lines.push("Encoded string (HEX): " + bytesToHex(encodedString, maxPrintableLength));
-            lines.push("Encoded string (ASCII): " + bytesToString(encodedString, maxPrintableLength));
-            lines.push("Encoded string length: " + encodedString.length);
-
-            //lines.push(traceStack());
-
-            console.log(lines.join("\n"));
+            if (state) {
+                logging(state);
+            }
 
             return encodedString;
         };
@@ -1439,23 +1536,35 @@ Java.perform(function () {
 
         encodeKey.implementation = function (input, flags) {
             const encodedString = encodeKey.call(this, input, flags);
-            const lines = [];
+            const objectId = "encodeToStringBase64-" + encodeToStringBase64Counter;
+            const flagString = base64FlagsToString(flags);
+            encodeToStringBase64Counter++;
 
-            let flagString = base64FlagsToString(flags);
+            let truncated = "";
+            if (encodedString.length > maxPrintableLength) {
+                truncated = encodedString.substring(0, maxPrintableLength);
+                truncated += ` ... [${encodedString.length - maxPrintableLength} more bytes]`;
+            } else {
+                truncated = encodedString;
+            }
 
-            lines.push("1. [Base64.encodeToString(byte[] input, int flags) -> java.lang.String]");
-            lines.push("Input (HEX): " + bytesToHex(input, maxPrintableLength));
-            //lines.push("Input (ASCII): " + bytesToString(input, maxPrintableLength));
-            lines.push("Input length: " + input.length);
-            lines.push("Flags (Numerical): " + flags);
-            lines.push("Flags (String): " + flagString);
+            const state = {
+                objectId: objectId,
+                timestamp: Date.now(),
+                overload: "1. [Base64.encodeToString(byte[] input, int flags) -> java.lang.String]",
+                inputHex: bytesToHex(input, maxPrintableLength),
+                inputString: bytesToString(input, maxPrintableLength),
+                inputLength: input.length,
+                flagNumerical: flags,
+                flagString: flagString,
+                outputString: truncated,
+                outputLength: encodedString.length,
+                stackTrace: traceStack()
+            }
 
-            lines.push("Encoded string: " + bytesToString(encodedString, maxPrintableLength));
-            lines.push("Encoded string length: " + encodedString.length);
-
-            //lines.push(traceStack());
-
-            console.log(lines.join("\n"));
+            if (state) {
+                logging(state);
+            }
 
             return encodedString;
         };
@@ -1473,25 +1582,37 @@ Java.perform(function () {
 
         encodeKey.implementation = function (input, offset, len, flags) {
             const encodedString = encodeKey.call(this, input, offset, len, flags);
-            const lines = [];
+            const objectId = "encodeToStringBase64-" + encodeToStringBase64Counter;
+            const flagString = base64FlagsToString(flags);
+            encodeToStringBase64Counter++;
 
-            let flagString = base64FlagsToString(flags);
+            let truncated = "";
+            if (encodedString.length > maxPrintableLength) {
+                truncated = encodedString.substring(0, maxPrintableLength);
+                truncated += ` ... [${encodedString.length - maxPrintableLength} more bytes]`;
+            } else {
+                truncated = encodedString;
+            }
 
-            lines.push("2. [Base64.encodeToString(byte[] input, int offset, int len, int flags]) -> java.lang.String]");
-            lines.push("Input (HEX): " + bytesToHexRange(input, offset, len, maxPrintableLength));
-            //lines.push("Input (ASCII): " + bytesToStringRange(input, offset, len, maxPrintableLength));
-            lines.push("Input length: " + input.length);
-            lines.push("Input offset: " + offset);
-            lines.push("Input length: " + len);
-            lines.push("Flags (Numerical): " + flags);
-            lines.push("Flags (String): " + flagString);
+            const state = {
+                objectId: objectId,
+                timestamp: Date.now(),
+                overload: "2. [Base64.encodeToString(byte[input, int offset, int len, int flags]) -> java.lang.String]",
+                inputHex: bytesToHexRange(input, offset, len, maxPrintableLength),
+                inputString: bytesToStringRange(input, offset, len, maxPrintableLength),
+                inputLength: input.length,
+                inputOffset: offset,
+                inputLen: len,
+                flagNumerical: flags,
+                flagString: flagString,
+                outputString: truncated,
+                outputLength: encodedString.length,
+                stackTrace: traceStack()
+            }
 
-            lines.push("Encoded string: " + bytesToString(encodedString, maxPrintableLength));
-            lines.push("Encoded string length: " + encodedString.length);
-
-            //lines.push(traceStack());
-
-            console.log(lines.join("\n"));
+            if (state) {
+                logging(state);
+            }
 
             return encodedString;
         };
@@ -1510,21 +1631,35 @@ Java.perform(function () {
 
         decodeKey.implementation = function (str, flags) {
             const decodedString = decodeKey.call(this, str, flags);
-            const lines = [];
+            const objectId = "decodeBase64-" + decodeBase64Counter;
+            const flagString = base64FlagsToString(flags);
+            decodeBase64Counter++;
 
-            let flagString = base64FlagsToString(flags);
+            let truncated = "";
+            if (str.length > maxPrintableLength) {
+                truncated = str.substring(0, maxPrintableLength);
+                truncated += ` ... [${str.length - maxPrintableLength} more bytes]`;
+            } else {
+                truncated = str;
+            }
 
-            lines.push("1. [Base64.decode(java.lang.String str, int flags) -> byte[]]");
-            lines.push("Encoded input: " + str);
-            lines.push("Flags (Numerical): " + flags);
-            lines.push("Flags (String): " + flagString);
+            const state = {
+                objectId: objectId,
+                timestamp: Date.now(),
+                overload: "1. [Base64.decode(java.lang.String str, int flags) -> byte[]]",
+                encodedInput: truncated,
+                inputLength: str.length,
+                flagNumerical: flags,
+                flagString: flagString,
+                outputHex: bytesToHex(decodedString, maxPrintableLength),
+                outputString: bytesToString(decodedString, maxPrintableLength),
+                outputLength: decodedString.length,
+                stackTrace: traceStack()
+            }
 
-            //lines.push("Decoded output (HEX): " + bytesToHex(decodedString, maxPrintableLength));
-            lines.push("Decoded output (ASCII): " + bytesToString(decodedString, maxPrintableLength));
-
-            //lines.push(traceStack());
-
-            console.log(lines.join("\n"));
+            if (state) {
+                logging(state);
+            }
 
             return decodedString;
         };
@@ -1540,22 +1675,28 @@ Java.perform(function () {
 
         decodeKey.implementation = function (input, flags) {
             const decodedString = decodeKey.call(this, input, flags);
-            const lines = [];
+            const objectId = "decodeBase64-" + decodeBase64Counter;
+            const flagString = base64FlagsToString(flags);
+            decodeBase64Counter++;
 
-            let flagString = base64FlagsToString(flags);
+            const state = {
+                objectId: objectId,
+                timestamp: Date.now(),
+                overload: "2. [Base64.decode(byte[] input, int flags) -> byte[]]",
+                encodedInputHex: bytesToHex(input, maxPrintableLength),
+                encodedInputString: bytesToString(input, maxPrintableLength),
+                inputLength: input.length,
+                flagNumerical: flags,
+                flagString: flagString,
+                outputHex: bytesToHex(decodedString, maxPrintableLength),
+                outputString: bytesToString(decodedString, maxPrintableLength),
+                outputLength: decodedString.length,
+                stackTrace: traceStack()
+            }
 
-            lines.push("2. [Base64.decode(byte[] input, int flags) -> byte[]]");
-            //lines.push("Encoded input (HEX): " + bytesToHex(input, maxPrintableLength));
-            lines.push("Encoded input (ASCII): " + bytesToString(input, maxPrintableLength));
-            lines.push("Flags (Numerical): " + flags);
-            lines.push("Flags (String): " + flagString);
-
-            //lines.push("Decoded output (HEX): " + bytesToHex(decodedString, maxPrintableLength));
-            lines.push("Decoded output (ASCII): " + bytesToString(decodedString, maxPrintableLength));
-
-            //lines.push(traceStack());
-
-            console.log(lines.join("\n"));
+            if (state) {
+                logging(state);
+            }
 
             return decodedString;
         };
@@ -1573,22 +1714,28 @@ Java.perform(function () {
 
         decodeKey.implementation = function (input, offset, len, flags) {
             const decodedString = decodeKey.call(this, input, offset, len, flags);
-            const lines = [];
+            const objectId = "decodeBase64-" + decodeBase64Counter;
+            const flagString = base64FlagsToString(flags);
+            decodeBase64Counter++;
 
-            let flagString = base64FlagsToString(flags);
+            const state = {
+                objectId: objectId,
+                timestamp: Date.now(),
+                overload: "3. [Base64.decode(byte[] input, int offset, int len, int flags) -> byte[]]",
+                encodedInputHex: bytesToHexRange(input, offset, len, maxPrintableLength),
+                encodedInputString: bytesToStringRange(input, offset, len, maxPrintableLength),
+                inputLength: input.length,
+                flagNumerical: flags,
+                flagString: flagString,
+                outputHex: bytesToHex(decodedString, maxPrintableLength),
+                outputString: bytesToString(decodedString, maxPrintableLength),
+                outputLength: decodedString.length,
+                stackTrace: traceStack()
+            }
 
-            lines.push("3. [Base64.decode(byte[] input, int offset, int len, int flags) -> byte[]]");
-            //lines.push("Encoded input (HEX): " + bytesToHexRange(input, offset, len, maxPrintableLength));
-            lines.push("Encoded input (ASCII): " + bytesToStringRange(input, offset, len, maxPrintableLength));
-            lines.push("Flags (Numerical): " + flags);
-            lines.push("Flags (String): " + flagString);
-
-            //lines.push("Decoded output (HEX): " + bytesToHex(decodedString, maxPrintableLength));
-            lines.push("Decoded output (ASCII): " + bytesToString(decodedString, maxPrintableLength));
-
-            //lines.push(traceStack());
-
-            console.log(lines.join("\n"));
+            if (state) {
+                logging(state);
+            }
 
             return decodedString;
         };
