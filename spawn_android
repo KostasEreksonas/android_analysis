@@ -104,7 +104,7 @@ spawn_with_hook() {
 		printf "[+] Spawning process %s with hook %s\n" "${process_name}" "${hook}"
 		printf "%s\n" "${delimiter}"
 
-		uv run frida -U -f "${process_name}" -l "${hook}" | tee "${frida_output_log}"
+		uv run frida -U -f "${process_name}" -l "${hook}" | tee "logs/${frida_output_log}"
 	fi
 }
 
@@ -116,7 +116,7 @@ spawn_without_hook() {
 	printf "[+] Spawning process %s without additional hooks\n" "${process_name}"
 	printf "%s\n" "${delimiter}"
 
-	uv run frida -U -f "${process_name}" | tee "${frida_output_log}"
+	uv run frida -U -f "${process_name}" | tee "logs/${frida_output_log}"
 }
 
 get_pid() {
@@ -182,18 +182,18 @@ activity_log() {
 	local log_name="${1}"
 	local app_name="${2}"
 
-	adb logcat -c && adb logcat -v time > "${log_name}"
-	grep "${app_name}" "${log_name}" > "${app_log}"
-	grep "frida-server" "${log_name}" > "${frida_activity_log}"
+	adb logcat -c && adb logcat -v time > "logs/${log_name}"
+	grep "logs/${app_name}" "logs/${log_name}" > "logs/${app_log}"
+	grep "frida-server" "logs/${log_name}" > "logs/${frida_activity_log}"
 
 	printf "%s\n" "${delimiter}"
 	printf "[+]  ------------- \n"
 	printf "[+] | Saving Logs |\n"
 	printf "[+]  ------------- \n"
-	printf "[+] General Android device logs saved at: %s\n" "${log_name}"
-	printf "[+] %s logs saved at: %s\n" "${app_name}" "${app_log}"
-	printf "[+] Frida activity logs saved at: %s\n" "${frida_activity_log}"
-	printf "[+] Frida output logs saved at: %s\n" "${frida_output_log}"
+	printf "[+] General Android device logs saved at: %s\n" "logs/${log_name}"
+	printf "[+] %s logs saved at: %s\n" "${app_name}" "logs/${app_log}"
+	printf "[+] Frida activity logs saved at: %s\n" "logs/${frida_activity_log}"
+	printf "[+] Frida output logs saved at: %s\n" "logs/${frida_output_log}"
 	printf "%s\n" "${delimiter}"
 }
 
