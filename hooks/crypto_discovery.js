@@ -5,19 +5,33 @@ const Log = Java.use("android.util.Log");
 const Throwable = Java.use("java.lang.Throwable");
 
 function traceStack() {
-    const stack = Log.getStackTraceString(Throwable.$new());
-    return "Stack:\n\t" + stack;
+    return Log.getStackTraceString(Throwable.$new());
+}
+
+function logging(state) {
+    console.log(state.objectId + ":" + JSON.stringify(state, null, 2));
+}
+
+function fingerprint(bytes) {
+    // Compute a 32-bit FNV-1a hash
+    if (bytes === null || bytes === undefined) return "<null>";
+
+    let h = 2166136261;
+    for (let i = 0; i < bytes.length; i++) {
+        h ^= (bytes[i] & 0xFF);
+        h = Math.imul(h, 16777619);
+    }
+
+    return (h >>> 0).toString(16).padStart(8, "0") + ":" + bytes.length;
 }
 
 function bytesToHex(bytes, maxLength) {
-    if (bytes === null || bytes === undefined) {
-        return "<null>";
-    }
+    if (bytes === null || bytes === undefined) return "<null>";
 
     let result = "";
 
-    // A limit of 0 (or no limit) means the whole array. Never iterate past
-    // the actual array length when the requested limit is larger than it.
+    // If maxLength === 0, parse whole byte array
+    // Truncate the log entry if maxLength < bytes.length
     const hasLimit = typeof maxLength === "number" && maxLength > 0;
     const len = hasLimit ? Math.min(maxLength, bytes.length) : bytes.length;
 
@@ -38,14 +52,12 @@ function bytesToHex(bytes, maxLength) {
 }
 
 function bytesToHexRange(bytes, offset, length, maxLength) {
-    if (bytes === null || bytes === undefined) {
-        return "<null>";
-    }
+    if (bytes === null || bytes === undefined) return "<null>";
 
     let result = "";
 
-    // A limit of 0 (or no limit) means the whole array. Never iterate past
-    // the actual array length when the requested limit is larger than it.
+    // If maxLength === 0, parse whole byte array
+    // Truncate the log entry if maxLength < bytes.length
     const hasLimit = typeof maxLength === "number" && maxLength > 0;
     const len = hasLimit ? Math.min(maxLength, length) : length;
 
@@ -66,20 +78,19 @@ function bytesToHexRange(bytes, offset, length, maxLength) {
 }
 
 function bytesToString(bytes, maxLength) {
-    if (bytes === null || bytes === undefined) {
-        return "<null>";
-    }
+    if (bytes === null || bytes === undefined) return "<null>";
 
     let result = '';
 
-    // A limit of 0 (or no limit) means the whole array. Never iterate past
-    // the actual array length when the requested limit is larger than it.
+    // If maxLength === 0, parse whole byte array
+    // Truncate the log entry if maxLength < bytes.length
     const hasLimit = typeof maxLength === "number" && maxLength > 0;
     const len = hasLimit ? Math.min(maxLength, bytes.length) : bytes.length;
 
     for (let i = 0; i < len; ++i) {
+        // Only convert printable ASCII characters (32-126); otherwise, use a placeholder dot (.)
         let val = bytes[i] & 0xFF;  // Get unsigned byte value
-        // Only convert printable ASCII characters (32-126); otherwise, use a placeholder (.)
+
         if (val === 10) {
             result += "\\n";
         } else if (val === 13) {
@@ -87,9 +98,9 @@ function bytesToString(bytes, maxLength) {
         } else if (val === 9) {
             result += "\\t";
         } else if (val >= 32 && val <= 126) {
-            result += String.fromCharCode(val); // Convert only printable characters
+            result += String.fromCharCode(val);
         } else {
-            result += '.';  // Replace non-printable characters with a dot
+            result += '.';
         }
     }
 
@@ -101,20 +112,19 @@ function bytesToString(bytes, maxLength) {
 }
 
 function bytesToStringRange(bytes, offset, length, maxLength) {
-    if (bytes === null || bytes === undefined) {
-        return "<null>";
-    }
+    if (bytes === null || bytes === undefined) return "<null>";
 
     let result = '';
 
-    // A limit of 0 (or no limit) means the whole array. Never iterate past
-    // the actual array length when the requested limit is larger than it.
+    // If maxLength === 0, parse whole byte array
+    // Truncate the log entry if maxLength < bytes.length
     const hasLimit = typeof maxLength === "number" && maxLength > 0;
     const len = hasLimit ? Math.min(maxLength, length) : length;
 
     for (let i = offset; i < (offset + len); ++i) {
+        // Only convert printable ASCII characters (32-126); otherwise, use a placeholder dot (.)
         let val = bytes[i] & 0xFF;  // Get unsigned byte value
-        // Only convert printable ASCII characters (32-126); otherwise, use a placeholder (.)
+
         if (val === 10) {
             result += "\\n";
         } else if (val === 13) {
@@ -122,9 +132,9 @@ function bytesToStringRange(bytes, offset, length, maxLength) {
         } else if (val === 9) {
             result += "\\t";
         } else if (val >= 32 && val <= 126) {
-            result += String.fromCharCode(val); // Convert only printable characters
+            result += String.fromCharCode(val);
         } else {
-            result += '.';  // Replace non-printable characters with a dot
+            result += '.';
         }
     }
 
@@ -136,8 +146,7 @@ function bytesToStringRange(bytes, offset, length, maxLength) {
 }
 
 function logKey(state, key) {
-    if (key === null)
-        return;
+    if (key === null) return;
 
     state.keyClass = key.$className;
     state.keyAlgorithm = key.getAlgorithm();
@@ -147,14 +156,14 @@ function logKey(state, key) {
 
     if (encoded !== null) {
         state.keyBytes = bytesToHex(encoded, maxPrintableLength);
+        state.keyBytesFingerprint = fingerprint(encoded);
     } else {
         state.keyBytes = "<unavailable>";
     }
 }
 
 function logAlgorithmParameters(state, params) {
-    if (params === null)
-        return;
+    if (params === null) return;
 
     state.parameterClass = params.$className;
     state.parameterAlgorithm = params.getAlgorithm();
@@ -178,6 +187,7 @@ function logAlgorithmParameterSpec(state, params) {
         const IvParameterSpec = Java.use("javax.crypto.spec.IvParameterSpec");
         const ivSpec = Java.cast(params, IvParameterSpec);
         state.iv = bytesToHex(ivSpec.getIV(), maxPrintableLength);
+        state.ivFingerprint = fingerprint(ivSpec.getIV());
     }
 
     if (params.$className === "javax.crypto.spec.GCMParameterSpec") {
@@ -221,6 +231,7 @@ function base64FlagsToArray(flags) {
 
 function base64FlagsToString(flags) {
     let string = "";
+
     for (const i of base64FlagsToArray(flags)) {
         if (string === "") {
             string = i;
@@ -233,31 +244,10 @@ function base64FlagsToString(flags) {
 }
 
 function getObjectId(name, obj) {
-    if (obj === null || obj === undefined) {
-        return name + "-<null>";
-    }
+    if (obj === null || obj === undefined) return name + "-<null>";
 
     return name + "-" + obj.hashCode().toString();
 };
-
-function logging(state) {
-    const keys = Object.keys(state);
-    let final = "\n";
-
-    for (const key of keys) {
-        try {
-            final += key + ": " + state[key] + "\n";
-        } catch (e) {
-            console.log(
-                "[!] FAILED FIELD: " + key +
-                " | type: " + typeof state[key] +
-                " | error: " + e
-            );
-        }
-    }
-
-    console.log(final);
-}
 
 Java.perform(function () {
     const cipherStates = new Map();
@@ -288,7 +278,7 @@ Java.perform(function () {
             const state = {
                 objectId: objectId,
                 timestamp: Date.now(),
-                overloads: ["[Cipher.getInstance(java.lang.String) -> static Cipher]"],
+                instanceOverload: "[Cipher.getInstance(java.lang.String) -> static Cipher]",
                 transformation: transformation,
                 algorithm: cipher.getAlgorithm(),
                 runtimeClass: cipher.getClass().getName(),
@@ -324,7 +314,7 @@ Java.perform(function () {
             const state = {
                 objectId: objectId,
                 timestamp: Date.now(),
-                overloads: ["[Cipher.getInstance(java.lang.String, java.lang.String) -> static Cipher]"],
+                instanceOverload: "[Cipher.getInstance(java.lang.String, java.lang.String) -> static Cipher]",
                 transformation: transformation,
                 algorithm: cipher.getAlgorithm(),
                 runtimeClass: cipher.getClass().getName(),
@@ -359,7 +349,7 @@ Java.perform(function () {
             const state = {
                 objectId: objectId,
                 timestamp: Date.now(),
-                overloads: ["[Cipher.getInstance(java.lang.String, java.security.Provider) -> static Cipher]"],
+                instanceOverload: "[Cipher.getInstance(java.lang.String, java.security.Provider) -> static Cipher]",
                 transformation: transformation,
                 algorithm: cipher.getAlgorithm(),
                 runtimeClass: cipher.getClass().getName(),
@@ -398,17 +388,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                // Clear state on each reuse of Cipher object
-                state.overloads = ["[Cipher.init(int opmode, Certificate certificate) -> void]"];
-                state.updateInputs = [];
-                state.updateInputsLen = [];
-                state.updateOutputs = [];
-                state.updateOutputsLen = [];
-                delete state.input;
-                delete state.output;
-                delete state.bytesWritten;
-
-                // Init information
+                state.initOverload = "[Cipher.init(int opmode, Certificate certificate) -> void]";
                 state.opmode = opmode;
                 state.opmodeString = describeOpmode(opmode);
                 state.certificateType = certificate.getType();
@@ -440,17 +420,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                // Clear state on each reuse of Cipher object
-                state.overloads = ["[Cipher.init(int opmode, Certificate certificate, SecureRandom random) -> void]"];
-                state.updateInputs = [];
-                state.updateInputsLen = [];
-                state.updateOutputs = [];
-                state.updateOutputsLen = [];
-                delete state.input;
-                delete state.output;
-                delete state.bytesWritten;
-
-                // Init information
+                state.initOverload = "[Cipher.init(int opmode, Certificate certificate, SecureRandom random) -> void]";
                 state.opmode = opmode;
                 state.opmodeString = describeOpmode(opmode);
                 state.certificateType = certificate.getType();
@@ -481,17 +451,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                // Clear state on each reuse of Cipher object
-                state.overloads = ["[Cipher.init(int opmode, Key key) -> void]"];
-                state.updateInputs = [];
-                state.updateInputsLen = [];
-                state.updateOutputs = [];
-                state.updateOutputsLen = [];
-                delete state.input;
-                delete state.output;
-                delete state.bytesWritten;
-
-                // Init information
+                state.initOverload = "[Cipher.init(int opmode, Key key) -> void]";
                 state.opmode = opmode;
                 state.opmodeString = describeOpmode(opmode);
 
@@ -523,17 +483,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                // Clear state on each reuse of Cipher object
-                state.overloads = ["[Cipher.init(int opmode, Key key, AlgorithmParameters params) -> void]"];
-                state.updateInputs = [];
-                state.updateInputsLen = [];
-                state.updateOutputs = [];
-                state.updateOutputsLen = [];
-                delete state.input;
-                delete state.output;
-                delete state.bytesWritten;
-
-                // Init information
+                state.initOverload = "[Cipher.init(int opmode, Key key, AlgorithmParameters params) -> void]";
                 state.opmode = opmode;
                 state.opmodeString = describeOpmode(opmode);
 
@@ -566,17 +516,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                // Clear state on each reuse of Cipher object
-                state.overloads = ["[Cipher.init(int opmode, Key key, AlgorithmParameterSpec params) -> void]"];
-                state.updateInputs = [];
-                state.updateInputsLen = [];
-                state.updateOutputs = [];
-                state.updateOutputsLen = [];
-                delete state.input;
-                delete state.output;
-                delete state.bytesWritten;
-
-                // Init information
+                state.initOverload = "[Cipher.init(int opmode, Key key, AlgorithmParameterSpec params) -> void]";
                 state.opmode = opmode;
                 state.opmodeString = describeOpmode(opmode);
 
@@ -610,17 +550,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                // Clear state on each reuse of Cipher object
-                state.overloads = ["[Cipher.init(int opmode, Key key, AlgorithmParameterSpec params, SecureRandom random) -> void]"];
-                state.updateInputs = [];
-                state.updateInputsLen = [];
-                state.updateOutputs = [];
-                state.updateOutputsLen = [];
-                delete state.input;
-                delete state.output;
-                delete state.bytesWritten;
-
-                // Init information
+                state.initOverload = "[Cipher.init(int opmode, Key key, AlgorithmParameterSpec params, SecureRandom random) -> void]";
                 state.opmode = opmode;
                 state.opmodeString = describeOpmode(opmode);
 
@@ -656,17 +586,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                // Clear state on each reuse of Cipher object
-                state.overloads = ["[Cipher.init(int opmode, Key key, AlgorithmParameters params, SecureRandom random) -> void]"];
-                state.updateInputs = [];
-                state.updateInputsLen = [];
-                state.updateOutputs = [];
-                state.updateOutputsLen = [];
-                delete state.input;
-                delete state.output;
-                delete state.bytesWritten;
-
-                // Init information
+                state.initOverload = "[Cipher.init(int opmode, Key key, AlgorithmParameters params, SecureRandom random) -> void]";
                 state.opmode = opmode;
                 state.opmodeString = describeOpmode(opmode);
 
@@ -701,17 +621,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                // Clear state on each reuse of Cipher object
-                state.overloads = ["[Cipher.init(int opmode, Key key, SecureRandom random) -> void]"];
-                state.updateInputs = [];
-                state.updateInputsLen = [];
-                state.updateOutputs = [];
-                state.updateOutputsLen = [];
-                delete state.input;
-                delete state.output;
-                delete state.bytesWritten;
-
-                // Init information
+                state.initOverload = "[Cipher.init(int opmode, Key key, SecureRandom random) -> void]";
                 state.opmode = opmode;
                 state.opmodeString = describeOpmode(opmode);
 
@@ -745,7 +655,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                state.overloads.push("[Cipher.update(byte[] input) -> byte[]]");
+                state.updateOverload = "[Cipher.update(byte[] input) -> byte[]]";
                 state.updateInputs.push(bytesToHex(input, maxPrintableLength));
                 state.updateInputsLen.push(input.length);
                 state.updateOutputs.push(bytesToHex(output, maxPrintableLength));
@@ -772,7 +682,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                state.overloads.push("[Cipher.update(byte[] input, int inputOffset, int inputLen) -> byte[]]");
+                state.updateOverload = "[Cipher.update(byte[] input, int inputOffset, int inputLen) -> byte[]]";
                 state.updateInputs.push(bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength));
                 state.updateInputsLen.push(inputLen);
 
@@ -806,7 +716,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                state.overloads.push("[Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output) -> int]");
+                state.updateOverload = "[Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output) -> int]";
                 state.updateInputs.push(bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength));
                 state.updateInputsLen.push(inputLen);
 
@@ -841,7 +751,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                state.overloads.push("[Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]");
+                state.updateOverload = "[Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]";
                 state.updateInputs.push(bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength));
                 state.updateInputsLen.push(inputLen);
 
@@ -873,7 +783,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (output !== null && state !== undefined) {
-                state.overloads.push("[Cipher.doFinal() -> byte[]]");
+                state.finalOverload = "[Cipher.doFinal() -> byte[]]";
                 state.bytesWritten = output.length;
 
                 if (state.opmode === 1) {
@@ -882,12 +792,11 @@ Java.perform(function () {
                     state.output = bytesToString(output, maxPrintableLength);
                 }
             
+                state.outputFingerprint = fingerprint(output);
                 state.stackTrace = traceStack();
             }
 
-            if (state) {
-                logging(state);
-            }
+            if (state) logging(state);
 
             return output;
         };
@@ -907,7 +816,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (output !== null && state !== undefined) {
-                state.overloads.push("[Cipher.doFinal(byte[] input) -> byte[]]");
+                state.finalOverload = "[Cipher.doFinal(byte[] input) -> byte[]]";
                 state.bytesWritten = output.length;
 
                 if (state.opmode === 1) {
@@ -918,12 +827,11 @@ Java.perform(function () {
                     state.output = bytesToString(output, maxPrintableLength);
                 }
             
+                state.outputFingerprint = fingerprint(output);
                 state.stackTrace = traceStack();
             }
 
-            if (state) {
-                logging(state);
-            }
+            if (state) logging(state);
 
             return output;
         };
@@ -944,7 +852,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (outputLen > 0 && state !== undefined) {
-                state.overloads.push("[Cipher.doFinal(byte[] output int outputOffset) -> int]");
+                state.finalOverload = "[Cipher.doFinal(byte[] output int outputOffset) -> int]";
 
                 state.bytesWritten = output.length;
 
@@ -954,12 +862,11 @@ Java.perform(function () {
                     state.output = bytesToStringRange(output, outputOffset, outputLen, maxPrintableLength);
                 }
             
+                state.outputFingerprint = fingerprint(output);
                 state.stackTrace = traceStack();
             }
 
-            if (state) {
-                logging(state);
-            }
+            if (state) logging(state);
 
             return outputLen;
         };
@@ -981,7 +888,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                state.overloads.push("[Cipher.doFinal(byte[] input int inputOffset, int inputLen) -> byte[]]");
+                state.finalOverload = "[Cipher.doFinal(byte[] input int inputOffset, int inputLen) -> byte[]]";
 
                 state.bytesWritten = output.length;
 
@@ -993,12 +900,11 @@ Java.perform(function () {
                     state.output = bytesToString(output, maxPrintableLength);
                 }
             
+                state.outputFingerprint = fingerprint(output);
                 state.stackTrace = traceStack();
             }
 
-            if (state) {
-                logging(state);
-            }
+            if (state) logging(state);
 
             return output;
         };
@@ -1021,7 +927,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (outputLen > 0 && state !== undefined) {
-                state.overloads.push("[Cipher.doFinal(byte[] input int inputOffset, int inputLen, byte[] output) -> int]");
+                state.finalOverload = "[Cipher.doFinal(byte[] input int inputOffset, int inputLen, byte[] output) -> int]";
 
                 state.bytesWritten = outputLen;
 
@@ -1033,12 +939,11 @@ Java.perform(function () {
                     state.output = bytesToStringRange(output, 0, outputLen, maxPrintableLength);
                 }
             
+                state.outputFingerprint = fingerprint(output);
                 state.stackTrace = traceStack();
             }
 
-            if (state) {
-                logging(state);
-            }
+            if (state) logging(state);
 
             return outputLen;
         };
@@ -1062,7 +967,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (outputLen > 0 && state !== undefined) {
-                state.overloads.push("[Cipher.doFinal(byte[] input int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]");
+                state.finalOverload = "[Cipher.doFinal(byte[] input int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]";
 
                 state.bytesWritten = outputLen;
 
@@ -1074,12 +979,11 @@ Java.perform(function () {
                     state.output = bytesToStringRange(output, outputOffset, outputLen, maxPrintableLength);
                 }
             
+                state.outputFingerprint = fingerprint(output);
                 state.stackTrace = traceStack();
             }
 
-            if (state) {
-                logging(state);
-            }
+            if (state) logging(state);
 
             return outputLen;
         };
@@ -1102,7 +1006,7 @@ Java.perform(function () {
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
-                state.overloads.push("[Cipher.doFinal(ByteBuffer input, ByteBuffer output) -> int]");
+                state.finalOverload = "[Cipher.doFinal(ByteBuffer input, ByteBuffer output) -> int]";
                 state.bytesWritten = outputLen;
 
                 if (state.opmode === 1) {
@@ -1113,12 +1017,11 @@ Java.perform(function () {
                     state.output = bytesToString(duplicateOutput, maxPrintableLength);
                 }
             
+                state.outputFingerprint = fingerprint(output);
                 state.stackTrace = traceStack();
             }
 
-            if (state) {
-                logging(state);
-            }
+            if (state) logging(state);
 
             return outputLen;
         };
@@ -1256,9 +1159,8 @@ Java.perform(function () {
                 logKey(state, key);
             };
 
-            if (state) {
-                logging(state);
-            }
+            if (state) logging(state);
+
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -1286,9 +1188,7 @@ Java.perform(function () {
                 logAlgorithmParameterSpec(state, params);
             };
 
-            if (state) {
-                logging(state);
-            }
+            if (state) logging(state);
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -1363,9 +1263,7 @@ Java.perform(function () {
                 }
             };
 
-            if (state) {
-                logging(state);
-            }
+            if (state) logging(state);
 
             return output;
         };
@@ -1397,9 +1295,7 @@ Java.perform(function () {
                 }
             };
 
-            if (state) {
-                logging(state);
-            }
+            if (state) logging(state);
 
             return output;
         };
@@ -1431,9 +1327,7 @@ Java.perform(function () {
                 }
             };
 
-            if (state) {
-                logging(state);
-            }
+            if (state) logging(state);
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -1471,12 +1365,12 @@ Java.perform(function () {
                 //outputHex: bytesToHex(encodedString, maxPrintableLength),
                 outputString: bytesToString(encodedString, maxPrintableLength),
                 outputLength: encodedString.length,
+                inputFingerprint: fingerprint(input),
+                outputFingerprint: fingerprint(encodedString),
                 stackTrace: traceStack()
             }
 
-            if (state) {
-                logging(state);
-            }
+            if (state) logging(state);
 
             return encodedString;
         };
@@ -1512,12 +1406,12 @@ Java.perform(function () {
                 outputHex: bytesToHex(encodedString, maxPrintableLength),
                 outputString: bytesToString(encodedString, maxPrintableLength),
                 outputLength: encodedString.length,
+                inputFingerprint: fingerprint(input),
+                outputFingerprint: fingerprint(encodedString),
                 stackTrace: traceStack()
             }
 
-            if (state) {
-                logging(state);
-            }
+            if (state) logging(state);
 
             return encodedString;
         };
@@ -1559,12 +1453,12 @@ Java.perform(function () {
                 flagString: flagString,
                 outputString: truncated,
                 outputLength: encodedString.length,
+                inputFingerprint: fingerprint(input),
+                outputFingerprint: fingerprint(encodedString),
                 stackTrace: traceStack()
             }
 
-            if (state) {
-                logging(state);
-            }
+            if (state) logging(state);
 
             return encodedString;
         };
@@ -1607,12 +1501,12 @@ Java.perform(function () {
                 flagString: flagString,
                 outputString: truncated,
                 outputLength: encodedString.length,
+                inputFingerprint: fingerprint(input),
+                outputFingerprint: fingerprint(encodedString),
                 stackTrace: traceStack()
             }
 
-            if (state) {
-                logging(state);
-            }
+            if (state) logging(state);
 
             return encodedString;
         };
@@ -1654,12 +1548,12 @@ Java.perform(function () {
                 outputHex: bytesToHex(decodedString, maxPrintableLength),
                 outputString: bytesToString(decodedString, maxPrintableLength),
                 outputLength: decodedString.length,
+                inputFingerprint: fingerprint(str),
+                outputFingerprint: fingerprint(decodedString),
                 stackTrace: traceStack()
             }
 
-            if (state) {
-                logging(state);
-            }
+            if (state) logging(state);
 
             return decodedString;
         };
@@ -1691,12 +1585,12 @@ Java.perform(function () {
                 outputHex: bytesToHex(decodedString, maxPrintableLength),
                 outputString: bytesToString(decodedString, maxPrintableLength),
                 outputLength: decodedString.length,
+                inputFingerprint: fingerprint(input),
+                outputFingerprint: fingerprint(decodedString),
                 stackTrace: traceStack()
             }
 
-            if (state) {
-                logging(state);
-            }
+            if (state) logging(state);
 
             return decodedString;
         };
@@ -1730,12 +1624,12 @@ Java.perform(function () {
                 outputHex: bytesToHex(decodedString, maxPrintableLength),
                 outputString: bytesToString(decodedString, maxPrintableLength),
                 outputLength: decodedString.length,
+                inputFingerprint: fingerprint(input),
+                outputFingerprint: fingerprint(decodedString),
                 stackTrace: traceStack()
             }
 
-            if (state) {
-                logging(state);
-            }
+            if (state) logging(state);
 
             return decodedString;
         };
