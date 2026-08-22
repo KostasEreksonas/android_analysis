@@ -9,20 +9,25 @@ function traceStack() {
 }
 
 function logging(state) {
-    console.log(state.objectId + ":" + JSON.stringify(state, null, 2));
+    console.log(JSON.stringify(state, null, 2));
 }
 
-function fingerprint(bytes) {
+function fingerprint(input, type) {
     // Compute a 32-bit FNV-1a hash
-    if (bytes === null || bytes === undefined) return "<null>";
+    if (input === null || input === undefined) return "<null>";
 
     let h = 2166136261;
-    for (let i = 0; i < bytes.length; i++) {
-        h ^= (bytes[i] & 0xFF);
+    for (let i = 0; i < input.length; i++) {
+        if (type === "object") {
+            h ^= (input[i] & 0xFF);
+        } else if (type === "string") {
+            h ^= (input.toString().charCodeAt(i) & 0xFF);
+        }
+
         h = Math.imul(h, 16777619);
     }
 
-    return (h >>> 0).toString(16).padStart(8, "0") + ":" + bytes.length;
+    return (h >>> 0).toString(16).padStart(8, "0") + ":" + input.length;
 }
 
 function bytesToHex(bytes, maxLength) {
@@ -145,7 +150,7 @@ function bytesToStringRange(bytes, offset, length, maxLength) {
     return result;
 }
 
-function logKey(state, key, name) {
+function logKey(state, key) {
     if (key === null) return;
 
     state.keyClass = key.$className;
@@ -155,13 +160,9 @@ function logKey(state, key, name) {
     const encoded = key.getEncoded();
 
     if (encoded !== null) {
-        if (name === "Cipher") {
-            state.keyBytesHex = bytesToHex(encoded, maxPrintableLength);
-        } else if (name === "Mac") {
-            state.keyBytesString = bytesToString(encoded, maxPrintableLength);
-        }
-
-        state.keyBytesFingerprint = fingerprint(encoded);
+        state.keyBytesHex = bytesToHex(encoded, maxPrintableLength);
+        state.keyBytesString = bytesToString(encoded, maxPrintableLength);
+        state.keyBytesFingerprint = fingerprint(encoded, typeof(encoded));
     } else {
         state.keyBytes = "<unavailable>";
     }
@@ -191,13 +192,16 @@ function logAlgorithmParameterSpec(state, params) {
     if (params.$className === "javax.crypto.spec.IvParameterSpec") {
         const IvParameterSpec = Java.use("javax.crypto.spec.IvParameterSpec");
         const ivSpec = Java.cast(params, IvParameterSpec);
-        state.iv = bytesToHex(ivSpec.getIV(), maxPrintableLength);
-        state.ivFingerprint = fingerprint(ivSpec.getIV());
+        const ivValue = ivSpec.getIV();
+
+        state.iv = bytesToHex(ivValue, maxPrintableLength);
+        state.ivFingerprint = fingerprint(ivValue, typeof(ivValue));
     }
 
     if (params.$className === "javax.crypto.spec.GCMParameterSpec") {
         const GCMParameterSpec = Java.use("javax.crypto.spec.GCMParameterSpec");
         const gcm = Java.cast(params, GCMParameterSpec);
+
         state.gcmIv = bytesToHex(gcm.getIV(), maxPrintableLength);
         state.gcmTagBits = gcm.getTLen();
     }
@@ -212,6 +216,8 @@ function describeOpmode(opmode) {
         return "WRAP";
     } else if (opmode === 4) {
         return "UNWRAP";
+    } else {
+        return "UNKNOWN";
     }
 }
 
@@ -283,6 +289,7 @@ Java.perform(function () {
             const state = {
                 objectId: objectId,
                 timestamp: Date.now(),
+                lastSeen: Date.now(),
                 instanceOverload: "1. [Cipher.getInstance(java.lang.String) -> static Cipher]",
                 transformation: transformation,
                 algorithm: cipher.getAlgorithm(),
@@ -319,6 +326,7 @@ Java.perform(function () {
             const state = {
                 objectId: objectId,
                 timestamp: Date.now(),
+                lastSeen: Date.now(),
                 instanceOverload: "2. [Cipher.getInstance(java.lang.String, java.lang.String) -> static Cipher]",
                 transformation: transformation,
                 algorithm: cipher.getAlgorithm(),
@@ -354,6 +362,7 @@ Java.perform(function () {
             const state = {
                 objectId: objectId,
                 timestamp: Date.now(),
+                lastSeen: Date.now(),
                 instanceOverload: "3. [Cipher.getInstance(java.lang.String, java.security.Provider) -> static Cipher]",
                 transformation: transformation,
                 algorithm: cipher.getAlgorithm(),
@@ -404,6 +413,8 @@ Java.perform(function () {
                 } catch (e) {
                     state.blockSize = "<unavailable>";
                 }
+
+                state.lastSeen = Date.now();
             };
         };
     } catch (e) {
@@ -436,6 +447,8 @@ Java.perform(function () {
                 } catch (e) {
                     state.blockSize = "<unavailable>";
                 }
+
+                state.lastSeen = Date.now();
             };
         };
     } catch (e) {
@@ -466,7 +479,9 @@ Java.perform(function () {
                     state.blockSize = "<unavailable>";
                 }
 
-                logKey(state, key, "Cipher");
+                logKey(state, key);
+
+                state.lastSeen = Date.now();
             };
         };
     } catch (e) {
@@ -498,8 +513,10 @@ Java.perform(function () {
                     state.blockSize = "<unavailable>";
                 }
 
-                logKey(state, key, "Cipher");
+                logKey(state, key);
                 logAlgorithmParameters(state, params);
+
+                state.lastSeen = Date.now();
             };
         };
     } catch (e) {
@@ -531,8 +548,10 @@ Java.perform(function () {
                     state.blockSize = "<unavailable>";
                 }
 
-                logKey(state, key, "Cipher");
+                logKey(state, key);
                 logAlgorithmParameterSpec(state, params);
+
+                state.lastSeen = Date.now();
             };
         };
     } catch (e) {
@@ -565,10 +584,12 @@ Java.perform(function () {
                     state.blockSize = "<unavailable>";
                 }
 
-                logKey(state, key, "Cipher");
+                logKey(state, key);
                 logAlgorithmParameterSpec(state, params);
 
                 state.secureRandom = random !== null ? String(random.getClass().getName()) : "<null>";
+
+                state.lastSeen = Date.now();
             };
         };
     } catch (e) {
@@ -601,10 +622,12 @@ Java.perform(function () {
                     state.blockSize = "<unavailable>";
                 }
 
-                logKey(state, key, "Cipher");
+                logKey(state, key);
                 logAlgorithmParameters(state, params);
 
                 state.secureRandom = random !== null ? String(random.getClass().getName()) : "<null>";
+
+                state.lastSeen = Date.now();
             };
         };
     } catch (e) {
@@ -636,9 +659,11 @@ Java.perform(function () {
                     state.blockSize = "<unavailable>";
                 }
 
-                logKey(state, key, "Cipher");
+                logKey(state, key);
 
                 state.secureRandom = random !== null ? String(random.getClass().getName()) : "<null>";
+
+                state.lastSeen = Date.now();
             };
         };
     } catch (e) {
@@ -665,6 +690,7 @@ Java.perform(function () {
                 state.updateInputsLen.push(input.length);
                 state.updateOutputs.push(bytesToHex(output, maxPrintableLength));
                 state.updateOutputsLen.push(output.length);
+                state.lastSeen = Date.now();
             }
 
             return output;
@@ -698,6 +724,8 @@ Java.perform(function () {
                     state.updateOutputs.push("");
                     state.updateOutputsLen.push(0);
                 }
+
+                state.lastSeen = Date.now();
             }
 
             return output;
@@ -732,6 +760,8 @@ Java.perform(function () {
                     state.updateOutputs.push("");
                     state.updateOutputsLen.push(0);
                 }
+
+                state.lastSeen = Date.now();
             }
 
             return outputLen;
@@ -767,6 +797,8 @@ Java.perform(function () {
                     state.updateOutputs.push("");
                     state.updateOutputsLen.push(0);
                 }
+
+                state.lastSeen = Date.now();
             }
 
             return outputLen;
@@ -797,11 +829,12 @@ Java.perform(function () {
                     state.output = bytesToString(output, maxPrintableLength);
                 }
             
-                state.outputFingerprint = fingerprint(output);
+                state.outputFingerprint = fingerprint(output, typeof(output));
                 state.stackTrace = traceStack();
-            }
+                state.lastSeen = Date.now();
 
-            if (state) logging(state);
+                logging(state);
+            }
 
             return output;
         };
@@ -832,11 +865,12 @@ Java.perform(function () {
                     state.output = bytesToString(output, maxPrintableLength);
                 }
             
-                state.outputFingerprint = fingerprint(output);
+                state.outputFingerprint = fingerprint(output, typeof(output));
                 state.stackTrace = traceStack();
-            }
+                state.lastSeen = Date.now();
 
-            if (state) logging(state);
+                logging(state);
+            }
 
             return output;
         };
@@ -859,7 +893,7 @@ Java.perform(function () {
             if (outputLen > 0 && state !== undefined) {
                 state.finalOverload = "3. [Cipher.doFinal(byte[] output int outputOffset) -> int]";
 
-                state.bytesWritten = output.length;
+                state.bytesWritten = outputLen;
 
                 if (state.opmode === 1) {
                     state.output = bytesToHexRange(output, outputOffset, outputLen, maxPrintableLength);
@@ -867,11 +901,12 @@ Java.perform(function () {
                     state.output = bytesToStringRange(output, outputOffset, outputLen, maxPrintableLength);
                 }
             
-                state.outputFingerprint = fingerprint(output);
+                state.outputFingerprint = fingerprint(output, typeof(output));
                 state.stackTrace = traceStack();
-            }
+                state.lastSeen = Date.now();
 
-            if (state) logging(state);
+                logging(state);
+            }
 
             return outputLen;
         };
@@ -905,11 +940,12 @@ Java.perform(function () {
                     state.output = bytesToString(output, maxPrintableLength);
                 }
             
-                state.outputFingerprint = fingerprint(output);
+                state.outputFingerprint = fingerprint(output, typeof(output));
                 state.stackTrace = traceStack();
-            }
+                state.lastSeen = Date.now();
 
-            if (state) logging(state);
+                logging(state);
+            }
 
             return output;
         };
@@ -944,11 +980,12 @@ Java.perform(function () {
                     state.output = bytesToStringRange(output, 0, outputLen, maxPrintableLength);
                 }
             
-                state.outputFingerprint = fingerprint(output);
+                state.outputFingerprint = fingerprint(output, typeof(output));
                 state.stackTrace = traceStack();
-            }
+                state.lastSeen = Date.now();
 
-            if (state) logging(state);
+                logging(state);
+            }
 
             return outputLen;
         };
@@ -984,11 +1021,12 @@ Java.perform(function () {
                     state.output = bytesToStringRange(output, outputOffset, outputLen, maxPrintableLength);
                 }
             
-                state.outputFingerprint = fingerprint(output);
+                state.outputFingerprint = fingerprint(output, typeof(output));
                 state.stackTrace = traceStack();
-            }
+                state.lastSeen = Date.now();
 
-            if (state) logging(state);
+                logging(state);
+            }
 
             return outputLen;
         };
@@ -1022,11 +1060,12 @@ Java.perform(function () {
                     state.output = bytesToString(duplicateOutput, maxPrintableLength);
                 }
             
-                state.outputFingerprint = fingerprint(output);
+                state.outputFingerprint = fingerprint(output, typeof(output));
                 state.stackTrace = traceStack();
-            }
+                state.lastSeen = Date.now();
 
-            if (state) logging(state);
+                logging(state);
+            }
 
             return outputLen;
         };
@@ -1055,6 +1094,7 @@ Java.perform(function () {
             const state = {
                 objectId: objectId,
                 timestamp: Date.now(),
+                lastSeen: Date.now(),
                 instanceOverload: "1. [Mac.getInstance(java.lang.String) -> static Mac]",
                 transformation: transformation,
                 algorithm: instance.getAlgorithm(),
@@ -1089,6 +1129,7 @@ Java.perform(function () {
             const state = {
                 objectId: objectId,
                 timestamp: Date.now(),
+                lastSeen: Date.now(),
                 instanceOverload: "2. [Mac.getInstance(java.lang.String, java.lang.String) -> static Mac]",
                 transformation: transformation,
                 algorithm: instance.getAlgorithm(),
@@ -1122,6 +1163,7 @@ Java.perform(function () {
             const state = {
                 objectId: objectId,
                 timestamp: Date.now(),
+                lastSeen: Date.now(),
                 instanceOverload: "3. [Mac.getInstance(java.lang.String, java.security.Provider) -> static Mac]",
                 transformation: transformation,
                 algorithm: instance.getAlgorithm(),
@@ -1161,11 +1203,10 @@ Java.perform(function () {
                 state.initOverload = "1. [Mac.init(Key key) -> void]";
                 state.macLength = this.getMacLength();
 
-                logKey(state, key, "Mac");
-            };
+                logKey(state, key);
 
-            if (state) logging(state);
-
+                state.lastSeen = Date.now();
+            }
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -1187,12 +1228,12 @@ Java.perform(function () {
             if (state !== undefined) {
                 state.initOverload = "2. [Mac.init(Key key, AlgorithmParameterSpec params) -> void]";
 
-                logKey(state, key, "Mac");
+                logKey(state, key);
                 console.log("Params: " + params);
                 logAlgorithmParameterSpec(state, params);
-            };
 
-            if (state) logging(state);
+                state.lastSeen = Date.now();
+            }
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -1214,7 +1255,8 @@ Java.perform(function () {
                 state.updateOverload = "1. [Mac.update(byte[] input) -> void]";
                 state.updateCount++;
                 state.updates.push(bytesToHex(input, maxPrintableLength));
-            };
+                state.lastSeen = Date.now();
+            }
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -1238,7 +1280,8 @@ Java.perform(function () {
                 state.updateOverload = "2. [Mac.update(byte[] input, int offset, int len) -> void]";
                 state.updateCount++;
                 state.updates.push(bytesToHexRange(input, offset, len, maxPrintableLength));
-            };
+                state.lastSeen = Date.now();
+            }
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -1264,14 +1307,16 @@ Java.perform(function () {
 
                 if (output !== null) {
                     state.output = bytesToHex(output, maxPrintableLength);
-                    state.outputFingerprint = fingerprint(output);
+                    state.outputFingerprint = fingerprint(output, typeof(output));
                 } else {
                     state.output = "<undefined>";
                 }
-            };
 
-            state.stackTrace = traceStack();
-            if (state) logging(state);
+                state.stackTrace = traceStack();
+                state.lastSeen = Date.now();
+
+                logging(state);
+            };
 
             return output;
         };
@@ -1294,7 +1339,7 @@ Java.perform(function () {
                 state.finalOverload = "2. [Mac.doFinal(byte[] input) -> byte[]]";
                 state.inputHex = bytesToHex(input, maxPrintableLength);
                 state.inputString = bytesToString(input, maxPrintableLength);
-                state.inputFingerprint = fingerprint(input);
+                state.inputFingerprint = fingerprint(input, typeof(input));
 
                 const macLength = this.getMacLength();
                 state.bytesWritten = macLength;
@@ -1304,14 +1349,16 @@ Java.perform(function () {
 
                 if (output !== null) {
                     state.output = bytesToHex(output, maxPrintableLength);
-                    state.outputFingerprint = fingerprint(output);
+                    state.outputFingerprint = fingerprint(output, typeof(output));
                 } else {
                     state.output = "<undefined>";
                 }
-            };
 
-            state.stackTrace = traceStack();
-            if (state) logging(state);
+                state.stackTrace = traceStack();
+                state.lastSeen = Date.now();
+
+                logging(state);
+            };
 
             return output;
         };
@@ -1332,7 +1379,7 @@ Java.perform(function () {
             let state = macStates.get(objectId);
 
             if (state !== undefined) {
-                state.finalOverload = "3. [Mac.doFinal(byte[] output, int outOffset) -> byte[]]";
+                state.finalOverload = "3. [Mac.doFinal(byte[] output, int outOffset) -> void]";
 
                 const macLength = this.getMacLength();
                 state.bytesWritten = macLength;
@@ -1342,10 +1389,12 @@ Java.perform(function () {
                 } else {
                     state.output = "<undefined>";
                 }
-            };
 
-            state.stackTrace = traceStack();
-            if (state) logging(state);
+                state.stackTrace = traceStack();
+                state.lastSeen = Date.now();
+
+                logging(state);
+            };
         };
     } catch (e) {
         console.log("[+] Error message: " + e.message);
@@ -1380,11 +1429,11 @@ Java.perform(function () {
                 inputLength: input.length,
                 flagNumerical: flags,
                 flagString: flagString,
-                //outputHex: bytesToHex(encodedString, maxPrintableLength),
+                outputHex: bytesToHex(encodedString, maxPrintableLength),
                 outputString: bytesToString(encodedString, maxPrintableLength),
                 outputLength: encodedString.length,
-                inputFingerprint: fingerprint(input),
-                outputFingerprint: fingerprint(encodedString),
+                inputFingerprint: fingerprint(input, typeof(input)),
+                outputFingerprint: fingerprint(encodedString, typeof(encodedString)),
                 stackTrace: traceStack()
             }
 
@@ -1424,8 +1473,8 @@ Java.perform(function () {
                 outputHex: bytesToHex(encodedString, maxPrintableLength),
                 outputString: bytesToString(encodedString, maxPrintableLength),
                 outputLength: encodedString.length,
-                inputFingerprint: fingerprint(input),
-                outputFingerprint: fingerprint(encodedString),
+                inputFingerprint: fingerprint(input, typeof(input)),
+                outputFingerprint: fingerprint(encodedString, typeof(encodedString)),
                 stackTrace: traceStack()
             }
 
@@ -1471,8 +1520,8 @@ Java.perform(function () {
                 flagString: flagString,
                 outputString: truncated,
                 outputLength: encodedString.length,
-                inputFingerprint: fingerprint(input),
-                outputFingerprint: fingerprint(encodedString),
+                inputFingerprint: fingerprint(input, typeof(input)),
+                outputFingerprint: fingerprint(encodedString, typeof(encodedString)),
                 stackTrace: traceStack()
             }
 
@@ -1519,8 +1568,8 @@ Java.perform(function () {
                 flagString: flagString,
                 outputString: truncated,
                 outputLength: encodedString.length,
-                inputFingerprint: fingerprint(input),
-                outputFingerprint: fingerprint(encodedString),
+                inputFingerprint: fingerprint(input, typeof(input)),
+                outputFingerprint: fingerprint(encodedString, typeof(encodedString)),
                 stackTrace: traceStack()
             }
 
@@ -1566,8 +1615,8 @@ Java.perform(function () {
                 outputHex: bytesToHex(decodedString, maxPrintableLength),
                 outputString: bytesToString(decodedString, maxPrintableLength),
                 outputLength: decodedString.length,
-                inputFingerprint: fingerprint(str),
-                outputFingerprint: fingerprint(decodedString),
+                inputFingerprint: fingerprint(str, typeof(str)),
+                outputFingerprint: fingerprint(decodedString, typeof(decodedString)),
                 stackTrace: traceStack()
             }
 
@@ -1603,8 +1652,8 @@ Java.perform(function () {
                 outputHex: bytesToHex(decodedString, maxPrintableLength),
                 outputString: bytesToString(decodedString, maxPrintableLength),
                 outputLength: decodedString.length,
-                inputFingerprint: fingerprint(input),
-                outputFingerprint: fingerprint(decodedString),
+                inputFingerprint: fingerprint(input, typeof(input)),
+                outputFingerprint: fingerprint(decodedString, typeof(decodedString)),
                 stackTrace: traceStack()
             }
 
@@ -1642,8 +1691,8 @@ Java.perform(function () {
                 outputHex: bytesToHex(decodedString, maxPrintableLength),
                 outputString: bytesToString(decodedString, maxPrintableLength),
                 outputLength: decodedString.length,
-                inputFingerprint: fingerprint(input),
-                outputFingerprint: fingerprint(decodedString),
+                inputFingerprint: fingerprint(input, typeof(input)),
+                outputFingerprint: fingerprint(decodedString, typeof(decodedString)),
                 stackTrace: traceStack()
             }
 
