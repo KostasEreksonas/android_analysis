@@ -30,67 +30,56 @@ function fingerprint(input, type) {
     return (h >>> 0).toString(16).padStart(8, "0") + ":" + input.length;
 }
 
-function bytesToHex(bytes, maxLength) {
+function bytesToHex(bytes, bufferOffset, bufferLength, maxLength) {
     if (bytes === null || bytes === undefined) return "<null>";
 
-    let result = "";
+    let result, start, end, byteArrayLength;
+
+    if (bufferOffset === 0 && bufferLength === 0) {
+        start = 0;
+        end = bytes.length;
+        byteArrayLength = end;
+    } else {
+        start = bufferOffset;
+        end = bufferOffset + bufferLength;
+        byteArrayLength = end - start;
+    }
 
     // If maxLength === 0, parse whole byte array
     // Truncate the log entry if maxLength < bytes.length
     const hasLimit = typeof maxLength === "number" && maxLength > 0;
-    const len = hasLimit ? Math.min(maxLength, bytes.length) : bytes.length;
+    const len = hasLimit ? Math.min(maxLength, byteArrayLength) : byteArrayLength;
 
     for (let i = 0; i < len; i++) {
         let v = bytes[i];
-
-        if (v < 0)
-            v += 256;
-
+        if (v < 0) v += 256;
         result += ("0" + v.toString(16)).slice(-2);
     }
 
-    if (hasLimit && bytes.length > len) {
-        result += ` ... [${bytes.length - len} more bytes]`;
-    }
+    if (hasLimit && byteArrayLength > len) result += ` ... [${byteArrayLength - len} more bytes]`;
 
     return result;
 }
 
-function bytesToHexRange(bytes, offset, length, maxLength) {
+function bytesToString(bytes, bufferOffset, bufferLength, maxLength) {
     if (bytes === null || bytes === undefined) return "<null>";
 
-    let result = "";
+    let result, start, end, byteArrayLength;
+
+    if (bufferOffset === 0 && bufferLength === 0) {
+        start = 0;
+        end = bytes.length;
+        byteArrayLength = end;
+    } else {
+        start = bufferOffset;
+        end = bufferOffset + bufferLength;
+        byteArrayLength = end - start;
+    }
 
     // If maxLength === 0, parse whole byte array
     // Truncate the log entry if maxLength < bytes.length
     const hasLimit = typeof maxLength === "number" && maxLength > 0;
-    const len = hasLimit ? Math.min(maxLength, length) : length;
-
-    for (let i = offset; i < (offset + len); i++) {
-        let v = bytes[i];
-
-        if (v < 0)
-            v += 256;
-
-        result += ("0" + v.toString(16)).slice(-2);
-    }
-
-    if (hasLimit && length > len) {
-        result += ` ... [${length - len} more bytes]`;
-    }
-
-    return result;
-}
-
-function bytesToString(bytes, maxLength) {
-    if (bytes === null || bytes === undefined) return "<null>";
-
-    let result = '';
-
-    // If maxLength === 0, parse whole byte array
-    // Truncate the log entry if maxLength < bytes.length
-    const hasLimit = typeof maxLength === "number" && maxLength > 0;
-    const len = hasLimit ? Math.min(maxLength, bytes.length) : bytes.length;
+    const len = hasLimit ? Math.min(maxLength, byteArrayLength) : byteArrayLength;
 
     for (let i = 0; i < len; ++i) {
         // Only convert printable ASCII characters (32-126); otherwise, use a placeholder dot (.)
@@ -109,43 +98,7 @@ function bytesToString(bytes, maxLength) {
         }
     }
 
-    if (hasLimit && bytes.length > len) {
-        result += ` ... [${bytes.length - len} more bytes]`;
-    }
-
-    return result;
-}
-
-function bytesToStringRange(bytes, offset, length, maxLength) {
-    if (bytes === null || bytes === undefined) return "<null>";
-
-    let result = '';
-
-    // If maxLength === 0, parse whole byte array
-    // Truncate the log entry if maxLength < bytes.length
-    const hasLimit = typeof maxLength === "number" && maxLength > 0;
-    const len = hasLimit ? Math.min(maxLength, length) : length;
-
-    for (let i = offset; i < (offset + len); ++i) {
-        // Only convert printable ASCII characters (32-126); otherwise, use a placeholder dot (.)
-        let val = bytes[i] & 0xFF;  // Get unsigned byte value
-
-        if (val === 10) {
-            result += "\\n";
-        } else if (val === 13) {
-            result += "\\r";
-        } else if (val === 9) {
-            result += "\\t";
-        } else if (val >= 32 && val <= 126) {
-            result += String.fromCharCode(val);
-        } else {
-            result += '.';
-        }
-    }
-
-    if (hasLimit && length > len) {
-        result += ` ... [${length - len} more bytes]`;
-    }
+    if (hasLimit && byteArrayLength > len) result += ` ... [${byteArrayLength - len} more bytes]`;
 
     return result;
 }
@@ -160,8 +113,8 @@ function logKey(state, key) {
     const encoded = key.getEncoded();
 
     if (encoded !== null) {
-        state.keyBytesHex = bytesToHex(encoded, maxPrintableLength);
-        state.keyBytesString = bytesToString(encoded, maxPrintableLength);
+        state.keyBytesHex = bytesToHex(encoded, 0, 0, maxPrintableLength);
+        state.keyBytesString = bytesToString(encoded, 0, 0, maxPrintableLength);
         state.keyBytesFingerprint = fingerprint(encoded, typeof(encoded));
     } else {
         state.keyBytes = "<unavailable>";
@@ -177,7 +130,7 @@ function logAlgorithmParameters(state, params) {
     const encoded = params.getEncoded();
 
     if (encoded !== null) {
-        state.parameterEncoded = bytesToHex(params.getEncoded(), maxPrintableLength);
+        state.parameterEncoded = bytesToHex(params.getEncoded(), 0, 0, maxPrintableLength);
     } else {
         state.parameterEncoded = "<undefined>";
     }
@@ -194,7 +147,7 @@ function logAlgorithmParameterSpec(state, params) {
         const ivSpec = Java.cast(params, IvParameterSpec);
         const ivValue = ivSpec.getIV();
 
-        state.iv = bytesToHex(ivValue, maxPrintableLength);
+        state.iv = bytesToHex(ivValue, 0, 0, maxPrintableLength);
         state.ivFingerprint = fingerprint(ivValue, typeof(ivValue));
     }
 
@@ -202,7 +155,7 @@ function logAlgorithmParameterSpec(state, params) {
         const GCMParameterSpec = Java.use("javax.crypto.spec.GCMParameterSpec");
         const gcm = Java.cast(params, GCMParameterSpec);
 
-        state.gcmIv = bytesToHex(gcm.getIV(), maxPrintableLength);
+        state.gcmIv = bytesToHex(gcm.getIV(), 0, 0, maxPrintableLength);
         state.gcmTagBits = gcm.getTLen();
     }
 }
@@ -349,7 +302,7 @@ Java.perform(function () {
         console.log("[+] Error message: " + e.message);
     }
 
-    try { // 3. [Cipher.getInstance(java.lang.String, java.security.Provider) -> static Cipher]
+    try { // 3. [Cipher.getInstance(String transformation, Provider provider) -> static Cipher]
         const instanceKey = Cipher.getInstance.overload(
             "java.lang.String",
             "java.security.Provider"
@@ -363,7 +316,7 @@ Java.perform(function () {
                 objectId: objectId,
                 timestamp: Date.now(),
                 lastSeen: Date.now(),
-                instanceOverload: "3. [Cipher.getInstance(java.lang.String, java.security.Provider) -> static Cipher]",
+                instanceOverload: "3. [Cipher.getInstance(String transformation, Provider provider) -> static Cipher]",
                 transformation: transformation,
                 algorithm: cipher.getAlgorithm(),
                 runtimeClass: cipher.getClass().getName(),
@@ -382,7 +335,7 @@ Java.perform(function () {
             return cipher;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 3. [Cipher.getInstance(String transformation, Provider provider) -> static Cipher]: " + e.message);
     }
 
     //  -----------------------
@@ -395,10 +348,9 @@ Java.perform(function () {
         );
 
         initKey.implementation = function (opmode, certificate) {
-            const objectId = getObjectId("Cipher", this);
-
             initKey.call(this, opmode, certificate);
 
+            const objectId = getObjectId("Cipher", this);
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
@@ -406,7 +358,7 @@ Java.perform(function () {
                 state.opmode = opmode;
                 state.opmodeString = describeOpmode(opmode);
                 state.certificateType = certificate.getType();
-                state.publicKey = bytesToHex(certificate.getPublicKey().getEncoded(), maxPrintableLength);
+                state.publicKey = bytesToHex(certificate.getPublicKey().getEncoded(), 0, 0, maxPrintableLength);
 
                 try {
                     state.blockSize = this.getBlockSize();
@@ -429,10 +381,9 @@ Java.perform(function () {
         );
 
         initKey.implementation = function (opmode, certificate, random) {
-            const objectId = getObjectId("Cipher", this);
-
             initKey.call(this, opmode, certificate, random);
 
+            const objectId = getObjectId("Cipher", this);
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
@@ -440,7 +391,7 @@ Java.perform(function () {
                 state.opmode = opmode;
                 state.opmodeString = describeOpmode(opmode);
                 state.certificateType = certificate.getType();
-                state.publicKey = bytesToHex(certificate.getPublicKey().getEncoded(), maxPrintableLength);
+                state.publicKey = bytesToHex(certificate.getPublicKey().getEncoded(), 0, 0, maxPrintableLength);
 
                 try {
                     state.blockSize = this.getBlockSize();
@@ -462,10 +413,9 @@ Java.perform(function () {
         );
 
         initKey.implementation = function (opmode, key) {
-            const objectId = getObjectId("Cipher", this);
-
             initKey.call(this, opmode, key);
 
+            const objectId = getObjectId("Cipher", this);
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
@@ -496,10 +446,9 @@ Java.perform(function () {
         );
 
         initKey.implementation = function (opmode, key, params) {
-            const objectId = getObjectId("Cipher", this);
-
             initKey.call(this, opmode, key, params);
 
+            const objectId = getObjectId("Cipher", this);
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
@@ -531,10 +480,9 @@ Java.perform(function () {
         );
 
         initKey.implementation = function (opmode, key, params) {
-            const objectId = getObjectId("Cipher", this);
-
             initKey.call(this, opmode, key, params);
 
+            const objectId = getObjectId("Cipher", this);
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
@@ -567,10 +515,9 @@ Java.perform(function () {
         );
 
         initKey.implementation = function (opmode, key, params, random) {
-            const objectId = getObjectId("Cipher", this);
-
             initKey.call(this, opmode, key, params, random);
 
+            const objectId = getObjectId("Cipher", this);
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
@@ -588,7 +535,6 @@ Java.perform(function () {
                 logAlgorithmParameterSpec(state, params);
 
                 state.secureRandom = random !== null ? String(random.getClass().getName()) : "<null>";
-
                 state.lastSeen = Date.now();
             };
         };
@@ -605,10 +551,9 @@ Java.perform(function () {
         );
 
         initKey.implementation = function (opmode, key, params, random) {
-            const objectId = getObjectId("Cipher", this);
-
             initKey.call(this, opmode, key, params, random);
 
+            const objectId = getObjectId("Cipher", this);
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
@@ -626,7 +571,6 @@ Java.perform(function () {
                 logAlgorithmParameters(state, params);
 
                 state.secureRandom = random !== null ? String(random.getClass().getName()) : "<null>";
-
                 state.lastSeen = Date.now();
             };
         };
@@ -642,10 +586,9 @@ Java.perform(function () {
         );
 
         initKey.implementation = function (opmode, key, random) {
-            const objectId = getObjectId("Cipher", this);
-
             initKey.call(this, opmode, key, random);
 
+            const objectId = getObjectId("Cipher", this);
             let state = cipherStates.get(objectId);
 
             if (state !== undefined) {
@@ -662,7 +605,6 @@ Java.perform(function () {
                 logKey(state, key);
 
                 state.secureRandom = random !== null ? String(random.getClass().getName()) : "<null>";
-
                 state.lastSeen = Date.now();
             };
         };
@@ -686,9 +628,9 @@ Java.perform(function () {
 
             if (state !== undefined) {
                 state.updateOverload = "1. [Cipher.update(byte[] input) -> byte[]]";
-                state.updateInputs.push(bytesToHex(input, maxPrintableLength));
+                state.updateInputs.push(bytesToHex(input, 0, 0, maxPrintableLength));
                 state.updateInputsLen.push(input.length);
-                state.updateOutputs.push(bytesToHex(output, maxPrintableLength));
+                state.updateOutputs.push(bytesToHex(output, 0, 0, maxPrintableLength));
                 state.updateOutputsLen.push(output.length);
                 state.lastSeen = Date.now();
             }
@@ -714,11 +656,11 @@ Java.perform(function () {
 
             if (state !== undefined) {
                 state.updateOverload = "2. [Cipher.update(byte[] input, int inputOffset, int inputLen) -> byte[]]";
-                state.updateInputs.push(bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength));
+                state.updateInputs.push(bytesToHex(input, inputOffset, inputLen, maxPrintableLength));
                 state.updateInputsLen.push(inputLen);
 
                 if (output !== null) {
-                    state.updateOutputs.push(bytesToHex(output, maxPrintableLength));
+                    state.updateOutputs.push(bytesToHex(output, 0, 0, maxPrintableLength));
                     state.updateOutputsLen.push(output.length);
                 } else {
                     state.updateOutputs.push("");
@@ -750,11 +692,11 @@ Java.perform(function () {
 
             if (state !== undefined) {
                 state.updateOverload = "3. [Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output) -> int]";
-                state.updateInputs.push(bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength));
+                state.updateInputs.push(bytesToHex(input, inputOffset, inputLen, maxPrintableLength));
                 state.updateInputsLen.push(inputLen);
 
                 if (outputLen > 0) {
-                    state.updateOutputs.push(bytesToHexRange(output, 0, outputLen, maxPrintableLength));
+                    state.updateOutputs.push(bytesToHex(output, 0, outputLen, maxPrintableLength));
                     state.updateOutputsLen.push(outputLen);
                 } else {
                     state.updateOutputs.push("");
@@ -787,11 +729,11 @@ Java.perform(function () {
 
             if (state !== undefined) {
                 state.updateOverload = "4. [Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]";
-                state.updateInputs.push(bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength));
+                state.updateInputs.push(bytesToHex(input, inputOffset, inputLen, maxPrintableLength));
                 state.updateInputsLen.push(inputLen);
 
                 if (outputLen > 0) {
-                    state.updateOutputs.push(bytesToHexRange(output, outputOffset, outputLen, maxPrintableLength));
+                    state.updateOutputs.push(bytesToHex(output, outputOffset, outputLen, maxPrintableLength));
                     state.updateOutputsLen.push(outputLen);
                 } else {
                     state.updateOutputs.push("");
@@ -824,9 +766,9 @@ Java.perform(function () {
                 state.bytesWritten = output.length;
 
                 if (state.opmode === 1) {
-                    state.output = bytesToHex(output, maxPrintableLength);
+                    state.output = bytesToHex(output, 0, 0, maxPrintableLength);
                 } else if (state.opmode === 2) {
-                    state.output = bytesToString(output, maxPrintableLength);
+                    state.output = bytesToString(output, 0, 0, maxPrintableLength);
                 }
             
                 state.outputFingerprint = fingerprint(output, typeof(output));
@@ -858,11 +800,11 @@ Java.perform(function () {
                 state.bytesWritten = output.length;
 
                 if (state.opmode === 1) {
-                    state.input = bytesToString(input, maxPrintableLength);
-                    state.output = bytesToHex(output, maxPrintableLength);
+                    state.input = bytesToString(input, 0, 0, maxPrintableLength);
+                    state.output = bytesToHex(output, 0, 0, maxPrintableLength);
                 } else if (state.opmode === 2) {
-                    state.input = bytesToHex(input, maxPrintableLength);
-                    state.output = bytesToString(output, maxPrintableLength);
+                    state.input = bytesToHex(input, 0, 0, maxPrintableLength);
+                    state.output = bytesToString(output, 0, 0, maxPrintableLength);
                 }
             
                 state.outputFingerprint = fingerprint(output, typeof(output));
@@ -896,9 +838,9 @@ Java.perform(function () {
                 state.bytesWritten = outputLen;
 
                 if (state.opmode === 1) {
-                    state.output = bytesToHexRange(output, outputOffset, outputLen, maxPrintableLength);
+                    state.output = bytesToHex(output, outputOffset, outputLen, maxPrintableLength);
                 } else if (state.opmode === 2) {
-                    state.output = bytesToStringRange(output, outputOffset, outputLen, maxPrintableLength);
+                    state.output = bytesToString(output, outputOffset, outputLen, maxPrintableLength);
                 }
             
                 state.outputFingerprint = fingerprint(output, typeof(output));
@@ -933,11 +875,11 @@ Java.perform(function () {
                 state.bytesWritten = output.length;
 
                 if (state.opmode === 1) {
-                    state.input = bytesToStringRange(input, inputOffset, inputLen, maxPrintableLength);
-                    state.output = bytesToHex(output, maxPrintableLength);
+                    state.input = bytesToString(input, inputOffset, inputLen, maxPrintableLength);
+                    state.output = bytesToHex(output, 0, 0, maxPrintableLength);
                 } else if (state.opmode === 2) {
-                    state.input = bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength);
-                    state.output = bytesToString(output, maxPrintableLength);
+                    state.input = bytesToHex(input, inputOffset, inputLen, maxPrintableLength);
+                    state.output = bytesToString(output, 0, 0, maxPrintableLength);
                 }
             
                 state.outputFingerprint = fingerprint(output, typeof(output));
@@ -973,11 +915,11 @@ Java.perform(function () {
                 state.bytesWritten = outputLen;
 
                 if (state.opmode === 1) {
-                    state.input = bytesToStringRange(input, inputOffset, inputLen, maxPrintableLength);
-                    state.output = bytesToHexRange(output, 0, outputLen, maxPrintableLength);
+                    state.input = bytesToString(input, inputOffset, inputLen, maxPrintableLength);
+                    state.output = bytesToHex(output, 0, outputLen, maxPrintableLength);
                 } else if (state.opmode === 2) {
-                    state.input = bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength);
-                    state.output = bytesToStringRange(output, 0, outputLen, maxPrintableLength);
+                    state.input = bytesToHex(input, inputOffset, inputLen, maxPrintableLength);
+                    state.output = bytesToString(output, 0, outputLen, maxPrintableLength);
                 }
             
                 state.outputFingerprint = fingerprint(output, typeof(output));
@@ -1014,11 +956,11 @@ Java.perform(function () {
                 state.bytesWritten = outputLen;
 
                 if (state.opmode === 1) {
-                    state.input = bytesToStringRange(input, inputOffset, inputLen, maxPrintableLength);
-                    state.output = bytesToHexRange(output, outputOffset, outputLen, maxPrintableLength);
+                    state.input = bytesToString(input, inputOffset, inputLen, maxPrintableLength);
+                    state.output = bytesToHex(output, outputOffset, outputLen, maxPrintableLength);
                 } else if (state.opmode === 2) {
-                    state.input = bytesToHexRange(input, inputOffset, inputLen, maxPrintableLength);
-                    state.output = bytesToStringRange(output, outputOffset, outputLen, maxPrintableLength);
+                    state.input = bytesToHex(input, inputOffset, inputLen, maxPrintableLength);
+                    state.output = bytesToString(output, outputOffset, outputLen, maxPrintableLength);
                 }
             
                 state.outputFingerprint = fingerprint(output, typeof(output));
@@ -1053,11 +995,11 @@ Java.perform(function () {
                 state.bytesWritten = outputLen;
 
                 if (state.opmode === 1) {
-                    state.input = bytesToString(duplicateInput, maxPrintableLength);
-                    state.output = bytesToHex(duplicateOutput, maxPrintableLength);
+                    state.input = bytesToString(duplicateInput, 0, 0, maxPrintableLength);
+                    state.output = bytesToHex(duplicateOutput, 0, 0, maxPrintableLength);
                 } else if (state.opmode === 2) {
-                    state.input = bytesToHex(duplicateInput, maxPrintableLength);
-                    state.output = bytesToString(duplicateOutput, maxPrintableLength);
+                    state.input = bytesToHex(duplicateInput, 0, 0, maxPrintableLength);
+                    state.output = bytesToString(duplicateOutput, 0, 0, maxPrintableLength);
                 }
             
                 state.outputFingerprint = fingerprint(output, typeof(output));
@@ -1254,7 +1196,7 @@ Java.perform(function () {
             if (state !== undefined) {
                 state.updateOverload = "1. [Mac.update(byte[] input) -> void]";
                 state.updateCount++;
-                state.updates.push(bytesToHex(input, maxPrintableLength));
+                state.updates.push(bytesToHex(input, 0, 0, maxPrintableLength));
                 state.lastSeen = Date.now();
             }
         };
@@ -1279,7 +1221,7 @@ Java.perform(function () {
             if (state !== undefined) {
                 state.updateOverload = "2. [Mac.update(byte[] input, int offset, int len) -> void]";
                 state.updateCount++;
-                state.updates.push(bytesToHexRange(input, offset, len, maxPrintableLength));
+                state.updates.push(bytesToHex(input, offset, len, maxPrintableLength));
                 state.lastSeen = Date.now();
             }
         };
@@ -1306,7 +1248,7 @@ Java.perform(function () {
                 state.bytesWritten = macLength;
 
                 if (output !== null) {
-                    state.output = bytesToHex(output, maxPrintableLength);
+                    state.output = bytesToHex(output, 0, 0, maxPrintableLength);
                     state.outputFingerprint = fingerprint(output, typeof(output));
                 } else {
                     state.output = "<undefined>";
@@ -1337,18 +1279,18 @@ Java.perform(function () {
 
             if (state !== undefined) {
                 state.finalOverload = "2. [Mac.doFinal(byte[] input) -> byte[]]";
-                state.inputHex = bytesToHex(input, maxPrintableLength);
-                state.inputString = bytesToString(input, maxPrintableLength);
+                state.inputHex = bytesToHex(input, 0, 0, maxPrintableLength);
+                state.inputString = bytesToString(input, 0, 0, maxPrintableLength);
                 state.inputFingerprint = fingerprint(input, typeof(input));
 
                 const macLength = this.getMacLength();
                 state.bytesWritten = macLength;
 
-                state.updates.push(bytesToString(input, maxPrintableLength));
+                state.updates.push(bytesToString(input, 0, 0, maxPrintableLength));
                 state.updateCount++;
 
                 if (output !== null) {
-                    state.output = bytesToHex(output, maxPrintableLength);
+                    state.output = bytesToHex(output, 0, 0, maxPrintableLength);
                     state.outputFingerprint = fingerprint(output, typeof(output));
                 } else {
                     state.output = "<undefined>";
@@ -1385,7 +1327,7 @@ Java.perform(function () {
                 state.bytesWritten = macLength;
 
                 if (output !== null) {
-                    state.output = bytesToHexRange(output, outputOffset, macLength, maxPrintableLength);
+                    state.output = bytesToHex(output, outputOffset, macLength, maxPrintableLength);
                 } else {
                     state.output = "<undefined>";
                 }
@@ -1424,13 +1366,13 @@ Java.perform(function () {
                 objectId: objectId,
                 timestamp: Date.now(),
                 overload: "1. [Base64.encode(byte[] input, int flags) -> byte[]]",
-                inputHex: bytesToHex(input, maxPrintableLength),
-                inputString: bytesToString(input, maxPrintableLength),
+                inputHex: bytesToHex(input, 0, 0, maxPrintableLength),
+                inputString: bytesToString(input, 0, 0, maxPrintableLength),
                 inputLength: input.length,
                 flagNumerical: flags,
                 flagString: flagString,
-                outputHex: bytesToHex(encodedString, maxPrintableLength),
-                outputString: bytesToString(encodedString, maxPrintableLength),
+                outputHex: bytesToHex(encodedString, 0, 0, maxPrintableLength),
+                outputString: bytesToString(encodedString, 0, 0, maxPrintableLength),
                 outputLength: encodedString.length,
                 inputFingerprint: fingerprint(input, typeof(input)),
                 outputFingerprint: fingerprint(encodedString, typeof(encodedString)),
@@ -1463,15 +1405,15 @@ Java.perform(function () {
                 objectId: objectId,
                 timestamp: Date.now(),
                 overload: "2. [Base64.encode(byte[] input, int offset, int len, int flags]) -> byte[]]",
-                inputHex: bytesToHexRange(input, offset, len, maxPrintableLength),
-                inputString: bytesToStringRange(input, offset, len, maxPrintableLength),
+                inputHex: bytesToHex(input, offset, len, maxPrintableLength),
+                inputString: bytesToString(input, offset, len, maxPrintableLength),
                 inputLength: input.length,
                 inputOffset: offset,
                 inputLen: len,
                 flagNumerical: flags,
                 flagString: flagString,
-                outputHex: bytesToHex(encodedString, maxPrintableLength),
-                outputString: bytesToString(encodedString, maxPrintableLength),
+                outputHex: bytesToHex(encodedString, 0, 0, maxPrintableLength),
+                outputString: bytesToString(encodedString, 0, 0, maxPrintableLength),
                 outputLength: encodedString.length,
                 inputFingerprint: fingerprint(input, typeof(input)),
                 outputFingerprint: fingerprint(encodedString, typeof(encodedString)),
@@ -1513,8 +1455,8 @@ Java.perform(function () {
                 objectId: objectId,
                 timestamp: Date.now(),
                 overload: "1. [Base64.encodeToString(byte[] input, int flags) -> java.lang.String]",
-                inputHex: bytesToHex(input, maxPrintableLength),
-                inputString: bytesToString(input, maxPrintableLength),
+                inputHex: bytesToHex(input, 0, 0, maxPrintableLength),
+                inputString: bytesToString(input, 0, 0, maxPrintableLength),
                 inputLength: input.length,
                 flagNumerical: flags,
                 flagString: flagString,
@@ -1559,8 +1501,8 @@ Java.perform(function () {
                 objectId: objectId,
                 timestamp: Date.now(),
                 overload: "2. [Base64.encodeToString(byte[input, int offset, int len, int flags]) -> java.lang.String]",
-                inputHex: bytesToHexRange(input, offset, len, maxPrintableLength),
-                inputString: bytesToStringRange(input, offset, len, maxPrintableLength),
+                inputHex: bytesToHex(input, offset, len, maxPrintableLength),
+                inputString: bytesToString(input, offset, len, maxPrintableLength),
                 inputLength: input.length,
                 inputOffset: offset,
                 inputLen: len,
@@ -1612,8 +1554,8 @@ Java.perform(function () {
                 inputLength: str.length,
                 flagNumerical: flags,
                 flagString: flagString,
-                outputHex: bytesToHex(decodedString, maxPrintableLength),
-                outputString: bytesToString(decodedString, maxPrintableLength),
+                outputHex: bytesToHex(decodedString, 0, 0, maxPrintableLength),
+                outputString: bytesToString(decodedString, 0, 0, maxPrintableLength),
                 outputLength: decodedString.length,
                 inputFingerprint: fingerprint(str, typeof(str)),
                 outputFingerprint: fingerprint(decodedString, typeof(decodedString)),
@@ -1644,13 +1586,13 @@ Java.perform(function () {
                 objectId: objectId,
                 timestamp: Date.now(),
                 overload: "2. [Base64.decode(byte[] input, int flags) -> byte[]]",
-                encodedInputHex: bytesToHex(input, maxPrintableLength),
-                encodedInputString: bytesToString(input, maxPrintableLength),
+                encodedInputHex: bytesToHex(input, 0, 0, maxPrintableLength),
+                encodedInputString: bytesToString(input, 0, 0, maxPrintableLength),
                 inputLength: input.length,
                 flagNumerical: flags,
                 flagString: flagString,
-                outputHex: bytesToHex(decodedString, maxPrintableLength),
-                outputString: bytesToString(decodedString, maxPrintableLength),
+                outputHex: bytesToHex(decodedString, 0, 0, maxPrintableLength),
+                outputString: bytesToString(decodedString, 0, 0, maxPrintableLength),
                 outputLength: decodedString.length,
                 inputFingerprint: fingerprint(input, typeof(input)),
                 outputFingerprint: fingerprint(decodedString, typeof(decodedString)),
@@ -1683,13 +1625,13 @@ Java.perform(function () {
                 objectId: objectId,
                 timestamp: Date.now(),
                 overload: "3. [Base64.decode(byte[] input, int offset, int len, int flags) -> byte[]]",
-                encodedInputHex: bytesToHexRange(input, offset, len, maxPrintableLength),
-                encodedInputString: bytesToStringRange(input, offset, len, maxPrintableLength),
+                encodedInputHex: bytesToHex(input, offset, len, maxPrintableLength),
+                encodedInputString: bytesToString(input, offset, len, maxPrintableLength),
                 inputLength: input.length,
                 flagNumerical: flags,
                 flagString: flagString,
-                outputHex: bytesToHex(decodedString, maxPrintableLength),
-                outputString: bytesToString(decodedString, maxPrintableLength),
+                outputHex: bytesToHex(decodedString, 0, 0, maxPrintableLength),
+                outputString: bytesToString(decodedString, 0, 0, maxPrintableLength),
                 outputLength: decodedString.length,
                 inputFingerprint: fingerprint(input, typeof(input)),
                 outputFingerprint: fingerprint(decodedString, typeof(decodedString)),
