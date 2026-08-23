@@ -1,81 +1,92 @@
 'use strict';
 
-const maxPrintableLength = 128; // Limit length of logged hex and ascii strings
+const maxPrintableLength = 48; // Limit length of logged hex and ascii strings
 const Log = Java.use("android.util.Log");
 const Throwable = Java.use("java.lang.Throwable");
 
 function traceStack() {
-    const stack = Log.getStackTraceString(Throwable.$new());
-    return "Stack:\n\t" + stack;
+    return Log.getStackTraceString(Throwable.$new());
 }
 
-function bytesToHex(bytes, maxLength) {
-    if (bytes === null || bytes === undefined) {
-        return "<null>";
-    }
-
-    let result = "";
-
-    // A limit of 0 (or no limit) means the whole array. Never iterate past
-    // the actual array length when the requested limit is larger than it.
-    const hasLimit = typeof maxLength === "number" && maxLength > 0;
-    const len = hasLimit ? Math.min(maxLength, bytes.length) : bytes.length;
-
-    for (let i = 0; i < len; i++) {
-        let v = bytes[i];
-
-        if (v < 0)
-            v += 256;
-
-        result += ("0" + v.toString(16)).slice(-2);
-    }
-
-    if (hasLimit && bytes.length > len) {
-        result += ` ... [${bytes.length - len} more bytes]`;
-    }
-
-    return result;
+function logging(state) {
+    console.log(JSON.stringify(state, null, 2));
 }
 
-function bytesToHexRange(bytes, offset, length, maxLength) {
-    let result = "";
+function fingerprint(input, type) {
+    // Compute a 32-bit FNV-1a hash
+    if (input === null || input === undefined) return "<null>";
 
-    // A limit of 0 (or no limit) means the whole array. Never iterate past
-    // the actual array length when the requested limit is larger than it.
+    let h = 2166136261;
+    for (let i = 0; i < input.length; i++) {
+        if (type === "object") {
+            h ^= (input[i] & 0xFF);
+        } else if (type === "string") {
+            h ^= (input.toString().charCodeAt(i) & 0xFF);
+        }
+
+        h = Math.imul(h, 16777619);
+    }
+
+    return (h >>> 0).toString(16).padStart(8, "0") + ":" + input.length;
+}
+
+function bytesToHex(bytes, bufferOffset, bufferLength, maxLength) {
+    if (bytes === null || bytes === undefined) return "<null>";
+
+    let result = "";
+    let start, end, length;
+
+    if (bufferOffset === 0 && bufferLength === 0) {
+        start = 0;
+        end = bytes.length;
+    } else {
+        start = bufferOffset;
+        end = bufferOffset + bufferLength;
+    }
+
+    length = end - start;
+
+    // If maxLength === 0, parse whole byte array
+    // Truncate the log entry if maxLength < bytes.length
     const hasLimit = typeof maxLength === "number" && maxLength > 0;
     const len = hasLimit ? Math.min(maxLength, length) : length;
 
-    for (let i = offset; i < (offset + len); i++) {
+    for (let i = start; i < len; i++) {
         let v = bytes[i];
-
-        if (v < 0)
-            v += 256;
-
+        if (v < 0) v += 256;
         result += ("0" + v.toString(16)).slice(-2);
     }
 
-    if (hasLimit && bytes.length > len) {
-        result += ` ... [${bytes.length - len} more bytes]`;
-    }
+    if (hasLimit && length > len) result += ` ... [${length - len} more bytes]`;
 
     return result;
 }
 
-function bytesToString(bytes, maxLength) {
-    if (bytes === null || bytes === undefined) {
-        return "<null>";
+function bytesToString(bytes, bufferOffset, bufferLength, maxLength) {
+    if (bytes === null || bytes === undefined) return "<null>";
+
+    let result = "";
+    let start, end, length;
+
+    if (bufferOffset === 0 && bufferLength === 0) {
+        start = 0;
+        end = bytes.length;
+    } else {
+        start = bufferOffset;
+        end = bufferOffset + bufferLength;
     }
 
-    let result = '';
+    length = end - start;
 
-    // A limit of 0 (or no limit) means the whole array. Never iterate past
-    // the actual array length when the requested limit is larger than it.
+    // If maxLength === 0, parse whole byte array
+    // Truncate the log entry if maxLength < bytes.length
     const hasLimit = typeof maxLength === "number" && maxLength > 0;
-    const len = hasLimit ? Math.min(maxLength, bytes.length) : bytes.length;
+    const len = hasLimit ? Math.min(maxLength, length) : length;
 
-    for (let i = 0; i < len; ++i) {
+    for (let i = start; i < len; ++i) {
+        // Only convert printable ASCII characters (32-126); otherwise, use a placeholder dot (.)
         let val = bytes[i] & 0xFF;  // Get unsigned byte value
-        // Only convert printable ASCII characters (32-126); otherwise, use a placeholder (.)
+
         if (val === 10) {
             result += "\\n";
         } else if (val === 13) {
@@ -83,142 +94,86 @@ function bytesToString(bytes, maxLength) {
         } else if (val === 9) {
             result += "\\t";
         } else if (val >= 32 && val <= 126) {
-            result += String.fromCharCode(val); // Convert only printable characters
+            result += String.fromCharCode(val);
         } else {
-            result += '.';  // Replace non-printable characters with a dot
+            result += '.';
         }
     }
 
-    if (hasLimit && bytes.length > len) {
-        result += ` ... [${bytes.length - len} more bytes]`;
-    }
+    if (hasLimit && length > len) result += ` ... [${length - len} more bytes]`;
 
     return result;
 }
 
-function bytesToStringRange(bytes, offset, length, maxLength) {
-    let result = '';
+function logKey(state, key) {
+    if (key === null) return;
 
-    // A limit of 0 (or no limit) means the whole array. Never iterate past
-    // the actual array length when the requested limit is larger than it.
-    const hasLimit = typeof maxLength === "number" && maxLength > 0;
-    const len = hasLimit ? Math.min(maxLength, length) : length;
-
-    for (let i = offset; i < (offset + len); ++i) {
-        let val = bytes[i] & 0xFF;  // Get unsigned byte value
-        // Only convert printable ASCII characters (32-126); otherwise, use a placeholder (.)
-        if (val === 10) {
-            result += "\\n";
-        } else if (val === 13) {
-            result += "\\r";
-        } else if (val === 9) {
-            result += "\\t";
-        } else if (val >= 32 && val <= 126) {
-            result += String.fromCharCode(val); // Convert only printable characters
-        } else {
-            result += '.';  // Replace non-printable characters with a dot
-        }
-    }
-
-    if (hasLimit && bytes.length > len) {
-        result += ` ... [${bytes.length - len} more bytes]`;
-    }
-
-    return result;
-}
-
-function logKey(key) {
-    if (key === null)
-        return;
-
-    let log = "";
-
-    log += "Key class: " + key.$className + "\n";
-    log += "Key algorithm: " + key.getAlgorithm() + "\n";
-    log += "Key format: " + key.getFormat() + "\n";
+    state.keyClass = key.$className;
+    state.keyAlgorithm = key.getAlgorithm();
+    state.keyFormat = key.getFormat();
 
     const encoded = key.getEncoded();
 
-    if (encoded !== null)
-        log += "Key bytes: " + bytesToHex(encoded, maxPrintableLength);
-
-    return log;
-}
-
-function logAlgorithmParameters(params) {
-    if (params === null)
-        return;
-
-    let log = "";
-
-    log += "Parameters class: " + params.$className + "\n";
-    log += "Parameters algorithm: " + params.getAlgorithm() + "\n";
-
-    try {
-        log += "Parameters encoded: " + bytesToHex(params.getEncoded(), maxPrintableLength);
-    } catch (e) {
-        log += "Could not encode parameters: " + e.message;
+    if (encoded !== null) {
+        state.keyBytesHex = bytesToHex(encoded, 0, 0, maxPrintableLength);
+        state.keyBytesString = bytesToString(encoded, 0, 0, maxPrintableLength);
+        state.keyBytesFingerprint = fingerprint(encoded, typeof (encoded));
+    } else {
+        state.keyBytes = "<unavailable>";
     }
-
-    return log;
 }
 
-function logAlgorithmParameterSpec(params) {
+function logAlgorithmParameters(state, params) {
+    if (params === null) return;
+
+    state.parameterClass = params.$className;
+    state.parameterAlgorithm = params.getAlgorithm();
+
+    const encoded = params.getEncoded();
+
+    if (encoded !== null) {
+        state.parameterEncoded = bytesToHex(params.getEncoded(), 0, 0, maxPrintableLength);
+    } else {
+        state.parameterEncoded = "<undefined>";
+    }
+}
+
+function logAlgorithmParameterSpec(state, params) {
     if (params === null)
         return;
 
-    let log = "";
-
-    log += "Parameter class: " + params.$className + "\n";
+    state.parameterClass = params.$className;
 
     if (params.$className === "javax.crypto.spec.IvParameterSpec") {
         const IvParameterSpec = Java.use("javax.crypto.spec.IvParameterSpec");
         const ivSpec = Java.cast(params, IvParameterSpec);
-        log += "IV: " + bytesToHex(ivSpec.getIV(), maxPrintableLength);
+        const ivValue = ivSpec.getIV();
+
+        state.iv = bytesToHex(ivValue, 0, 0, maxPrintableLength);
+        state.ivFingerprint = fingerprint(ivValue, typeof (ivValue));
     }
 
     if (params.$className === "javax.crypto.spec.GCMParameterSpec") {
         const GCMParameterSpec = Java.use("javax.crypto.spec.GCMParameterSpec");
         const gcm = Java.cast(params, GCMParameterSpec);
-        log += "IV/nonce: " + bytesToHex(gcm.getIV(), maxPrintableLength) + "\n";
-        log += "GCM tag bits: " + gcm.getTLen();
-    }
 
-    return log;
+        state.gcmIv = bytesToHex(gcm.getIV(), 0, 0, maxPrintableLength);
+        state.gcmTagBits = gcm.getTLen();
+    }
 }
 
 function describeOpmode(opmode) {
     if (opmode === 1) {
-        return "opmode: " + opmode + " (ENCRYPT)";
+        return "ENCRYPT";
     } else if (opmode === 2) {
-        return "opmode: " + opmode + " (DECRYPT)";
+        return "DECRYPT";
     } else if (opmode === 3) {
-        return "opmode: " + opmode + " (UNWRAP)";
+        return "WRAP";
     } else if (opmode === 4) {
-        return "opmode: " + opmode + " (WRAP)";
+        return "UNWRAP";
+    } else {
+        return "UNKNOWN";
     }
-}
-
-function byteArraySlice(src, offset, len) {
-    // Slice a subset of a given array
-    const result = [];
-
-    for (let i = offset; i < offset + len; i++) {
-        result.push(src[i]);
-    }
-
-    return result;
-}
-
-function wrappedKeyTypeToString(type) {
-    if (type === 1)
-        return "PUBLIC_KEY";
-    if (type === 2)
-        return "PRIVATE_KEY";
-    if (type === 3)
-        return "SECRET_KEY";
-
-    return "UNKNOWN(" + type + ")";
 }
 
 function base64FlagsToArray(flags) {
@@ -242,6 +197,7 @@ function base64FlagsToArray(flags) {
 
 function base64FlagsToString(flags) {
     let string = "";
+
     for (const i of base64FlagsToArray(flags)) {
         if (string === "") {
             string = i;
@@ -253,7 +209,35 @@ function base64FlagsToString(flags) {
     return string;
 }
 
+function getObjectId(name, obj) {
+    if (obj === null || obj === undefined) return name + "-<null>";
+
+    return name + "-" + obj.hashCode().toString();
+}
+
+function truncateBase64(str) {
+    // Truncate a Base64 string returned by java.lang.String objet
+    let truncated;
+
+    if (str.length > maxPrintableLength) {
+        truncated = str.substring(0, maxPrintableLength);
+        truncated += ` ... [${str.length - maxPrintableLength} more bytes]`;
+    } else {
+        truncated = str;
+    }
+
+    return truncated;
+}
+
+function resetDigestState(state) {
+    state.updateInputs = [];
+    state.updateInputsLen = [];
+    state.updateOutputs = [];
+    state.updateOutputsLen = [];
+}
+
 Java.perform(function () {
+    const messageDigestStates = new Map();
     //  -------------------------
     // | MessageDigest overloads |
     //  -------------------------
@@ -262,84 +246,163 @@ Java.perform(function () {
     //  ---------------------------------------
     // | MessageDigest.getInstance() overloads |
     //  ---------------------------------------
-    try { // 1. [MessageDigest.getInstance(String algorithm) -> static MessageDigest]
-        const digestKey = MessageDigest.getInstance.overload(
+    try {// 1. [MessageDigest.getInstance(java.lang.String) -> static MessageDigest]
+        const instanceKey = MessageDigest.getInstance.overload(
             "java.lang.String"
         );
 
-        digestKey.implementation = function (algorithm) {
-            const result = digestKey.call(MessageDigest, algorithm);
-            const lines = [];
+        instanceKey.implementation = function (transformation) {
+            const digest = instanceKey.call(MessageDigest, transformation);
+            const provider = digest.getProvider();
+            const objectId = getObjectId("MessageDigest", digest);
 
-            lines.push("1. [MessageDigest.getInstance(String algorithm) -> static MessageDigest]");
-            lines.push("Algorithm: " + algorithm);
-            lines.push("Object (returned): " + result);
-            lines.push("Algorithm (returned): " + result.getAlgorithm());
-            lines.push("Provider: " + result.getProvider());
-            lines.push("Digest length: " + result.getDigestLength());
+            const state = {
+                objectId: objectId,
+                timestamp: Date.now(),
+                lastSeen: Date.now(),
+                instanceOverload: "1. [MessageDigest.getInstance(java.lang.String) -> static MessageDigest]",
+                transformation: transformation,
+                algorithm: digest.getAlgorithm(),
+                runtimeClass: digest.getClass().getName(),
+                providerName: provider.getName(),
+                providerVersion: provider.getVersion(),
+                providerInfo: provider.getInfo(),
+                providerClass: provider.getClass().getName(),
+                updateInputs: [],
+                updateInputsLen: [],
+                updateOutputs: [],
+                updateOutputsLen: []
+            };
 
-            //lines.push(traceStack());
+            messageDigestStates.set(objectId, state);
 
-            console.log(lines.join("\n"));
-
-            return result;
-        };
+            return digest;
+        }
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 1. [MessageDigest.getInstance(java.lang.String) -> static MessageDigest]: " + e.message);
     }
 
-    try { // 2. [MessageDigest.getInstance(String algorithm, Provider provider) -> static MessageDigest]
-        const digestKey = MessageDigest.getInstance.overload(
+    try { // 2. [MessageDigest.getInstance(String transformation, String provider) -> static MessageDigest]
+        const instanceKey = MessageDigest.getInstance.overload(
+            "java.lang.String",
+            "java.lang.String"
+        );
+
+        instanceKey.implementation = function (transformation, provider) {
+            const digest = instanceKey.call(MessageDigest, transformation, provider);
+            const digestProvider = digest.getProvider();
+            const objectId = getObjectId("MessageDigest", digest);
+
+            const state = {
+                objectId: objectId,
+                timestamp: Date.now(),
+                lastSeen: Date.now(),
+                instanceOverload: "2. [MessageDigest.getInstance(String transformation, String provider) -> static MessageDigest]",
+                transformation: transformation,
+                algorithm: digest.getAlgorithm(),
+                runtimeClass: digest.getClass().getName(),
+                providerName: digestProvider.getName(),
+                providerVersion: digestProvider.getVersion(),
+                providerInfo: digestProvider.getInfo(),
+                providerClass: digestProvider.getClass().getName(),
+                updateInputs: [],
+                updateInputsLen: [],
+                updateOutputs: [],
+                updateOutputsLen: []
+            };
+
+            messageDigestStates.set(objectId, state);
+
+            return digest;
+        };
+    } catch (e) {
+        console.log("[+] ERROR - 2. [MessageDigest.getInstance(String transformation, String provider) -> static MessageDigest]: " + e.message);
+    }
+
+    try { // 3. [MessageDigest.getInstance(String transformation, Provider provider) -> static MessageDigest]
+        const instanceKey = MessageDigest.getInstance.overload(
             "java.lang.String",
             "java.security.Provider"
         );
 
-        digestKey.implementation = function (algorithm, provider) {
-            const result = digestKey.call(MessageDigest, algorithm, provider);
-            const lines = [];
+        instanceKey.implementation = function (transformation, provider) {
+            const digest = instanceKey.call(MessageDigest, transformation, provider);
+            const objectId = getObjectId("MessageDigest", digest);
 
-            lines.push("2. [MessageDigest.getInstance(String algorithm, Provider provider) -> static MessageDigest]");
-            lines.push("Algorithm: " + algorithm);
-            lines.push("Object (returned): " + result);
-            lines.push("Algorithm (returned): " + result.getAlgorithm());
-            lines.push("Provider: " + provider);
-            lines.push("Digest length: " + result.getDigestLength());
+            const state = {
+                objectId: objectId,
+                timestamp: Date.now(),
+                lastSeen: Date.now(),
+                instanceOverload: "3. [MessageDigest.getInstance(String transformation, Provider provider) -> static MessageDigest]",
+                transformation: transformation,
+                algorithm: digest.getAlgorithm(),
+                runtimeClass: digest.getClass().getName(),
+                providerName: provider.getName(),
+                providerVersion: provider.getVersion(),
+                providerInfo: provider.getInfo(),
+                providerClass: provider.getClass().getName(),
+                updateInputs: [],
+                updateInputsLen: [],
+                updateOutputs: [],
+                updateOutputsLen: []
+            };
 
-            //lines.push(traceStack());
+            messageDigestStates.set(objectId, state);
 
-            console.log(lines.join("\n"));
-
-            return result;
+            return digest;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 3. [MessageDigest.getInstance(String transformation, Provider provider) -> static MessageDigest]: " + e.message);
     }
 
-    try { // 3. [MessageDigest.getInstance(String algorithm, String provider) -> static MessageDigest]
-        const digestKey = MessageDigest.getInstance.overload(
-            "java.lang.String",
-            "java.lang.String"
+    //  ----------------------------------
+    // | MessageDigest.update() overloads |
+    //  ----------------------------------
+    try { // 1. [MessageDigest.update(byte[] input) -> void]
+        const digestKey = MessageDigest.update.overload(
+            "[B"
         );
 
-        digestKey.implementation = function (algorithm, provider) {
-            const result = digestKey.call(MessageDigest, algorithm, provider);
-            const lines = [];
+        digestKey.implementation = function (input) {
+            digestKey.call(this, input);
 
-            lines.push("3. [MessageDigest.getInstance(String algorithm, String provider) -> static MessageDigest]");
-            lines.push("Algorithm: " + algorithm);
-            lines.push("Object (returned): " + result);
-            lines.push("Algorithm (returned): " + result.getAlgorithm());
-            lines.push("Provider: " + provider.toString());
-            lines.push("Digest length: " + result.getDigestLength());
+            const objectId = getObjectId("MessageDigest", this);
+            let state = messageDigestStates.get(objectId);
 
-            //lines.push(traceStack());
-
-            console.log(lines.join("\n"));
-
-            return result;
+            if (state !== undefined) {
+                state.updateOverload = "1. [MessageDigest.update(byte[] input) -> void]";
+                state.updateInputs.push(bytesToHex(input, 0, 0, maxPrintableLength));
+                state.updateInputsLen.push(input.length);
+                state.lastSeen = Date.now();
+            }
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 1. [MessageDigest.update(byte[] input) -> void]: " + e.message);
+    }
+
+    try { // 2. [MessageDigest.update(byte[] input, int offset, int len) -> void]
+        const digestKey = MessageDigest.update.overload(
+            "[B",
+            "int",
+            "int"
+        );
+
+        digestKey.implementation = function (input, offset, len) {
+            digestKey.call(this, input, offset, len);
+
+            const objectId = getObjectId("MessageDigest", this);
+            let state = messageDigestStates.get(objectId);
+            let length = len - offset;
+
+            if (state !== undefined) {
+                state.updateOverload = "2. [MessageDigest.update(byte[] input, int offset, int len) -> void]";
+                state.updateInputs.push(bytesToHex(input, offset, len, maxPrintableLength));
+                state.updateInputsLen.push(length);
+                state.lastSeen = Date.now();
+            }
+        };
+    } catch (e) {
+        console.log("[+] ERROR - 2. [MessageDigest.update(byte[] input, int offset, int len) -> void]: " + e.message);
     }
 
     //  ----------------------------------
@@ -349,20 +412,28 @@ Java.perform(function () {
         const digestKey = MessageDigest.digest.overload();
 
         digestKey.implementation = function () {
-            const result = digestKey.call(this);
-            const lines = [];
+            const output = digestKey.call(this);
+            const objectId = getObjectId("MessageDigest", this);
+            let state = messageDigestStates.get(objectId);
 
-            lines.push("1. [MessageDigest.digest() -> byte[]]");
-            lines.push("Digested hash: " + bytesToHex(result, maxPrintableLength));
+            if (state !== undefined) {
+                state.digestOverload = "1. [MessageDigest.digest() -> byte[]]";
 
-            //lines.push(traceStack());
+                if (output !== null) {
+                    state.digestedHash = bytesToHex(output, 0, 0, maxPrintableLength);
+                    state.digestedHashLength = output.length;
+                    state.digestedHashFingerprint = fingerprint(output, typeof(output));
+                    state.lastSeen = Date.now();
+                }
 
-            console.log(lines.join("\n"));
+                logging(state);
+                resetDigestState(state);
+            }
 
-            return result;
+            return output;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 1. [MessageDigest.digest() -> byte[]]: " + e.message);
     }
 
     try { // 2. [MessageDigest.digest(byte[] input) -> byte[]]
@@ -371,22 +442,30 @@ Java.perform(function () {
         );
 
         digestKey.implementation = function (input) {
-            const result = digestKey.call(this, input);
-            const lines = [];
+            const output = digestKey.call(this, input);
+            const objectId = getObjectId("MessageDigest", this);
+            let state = messageDigestStates.get(objectId);
 
-            lines.push("2. [MessageDigest.digest(byte[] input) -> byte[]]");
-            lines.push("Input (HEX): " + bytesToHex(input, maxPrintableLength));
-            lines.push("Input (ASCII): " + bytesToString(input, maxPrintableLength));
-            lines.push("Digested hash: " + bytesToHex(result, maxPrintableLength));
+            if (state !== undefined) {
+                state.digestOverload = "2. [MessageDigest.digest(byte[] input) -> byte[]]";
+                state.updateInputs.push(bytesToHex(input, 0, 0, maxPrintableLength));
+                state.updateInputsLen.push(input.length);
 
-            //lines.push(traceStack());
+                if (output !== null) {
+                    state.digestedHash = bytesToHex(output, 0, 0, maxPrintableLength);
+                    state.digestedHashLength = output.length;
+                    state.digestedHashFingerprint = fingerprint(output, typeof(output));
+                    state.lastSeen = Date.now();
+                }
 
-            console.log(lines.join("\n"));
+                logging(state);
+                resetDigestState(state);
+            }
 
-            return result;
+            return output;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 2. [MessageDigest.digest(byte[] input) -> byte[]]: " + e.message);
     }
 
     try { // 3. [MessageDigest.digest(byte[] buf, int offset, int len) -> int]
@@ -397,96 +476,59 @@ Java.perform(function () {
         );
 
         digestKey.implementation = function (outputBuf, offset, len) {
-            const result = digestKey.call(this, outputBuf, offset, len);
-            const lines = [];
+            const outputLen = digestKey.call(this, outputBuf, offset, len);
+            const objectId = getObjectId("MessageDigest", this);
+            let state = messageDigestStates.get(objectId);
 
-            lines.push("3. [MessageDigest.digest(byte[] buf, int offset, int len) -> int]");
-            lines.push("Offset: " + offset);
-            lines.push("Allocated bytes in buffer: " + len);
-            lines.push("Bytes written: " + result);
-            lines.push("Digested hash: " + bytesToHexRange(outputBuf, offset, result, maxPrintableLength));
+            if (state !== undefined) {
+                state.digestOverload = "3. [MessageDigest.digest(byte[] input, int offset, int len) -> int]";
 
-            //lines.push(traceStack());
+                if (outputLen > 0) {
+                    state.digestedHash = bytesToHex(outputBuf, offset, len, maxPrintableLength);
+                    state.digestedHashLength = outputLen;
+                    state.digestedHashFingerprint = fingerprint(outputBuf, typeof(outputBuf));
+                    state.lastSeen = Date.now();
+                } else {
+                    state.digestedHash = "";
+                    state.digestedHashLength = 0;
+                    state.digestedHashFingerprint = fingerprint(outputBuf, typeof(outputBuf));
+                    state.lastSeen = Date.now();
+                }
 
-            console.log(lines.join("\n"));
+                logging(state);
+                resetDigestState(state);
+            }
 
-            return result;
+            return outputLen;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 3. [MessageDigest.digest(byte[] input, int offset, int len) -> int]: " + e.message);
     }
 
-    //  ----------------------------------
-    // | MessageDigest.update() overloads |
-    //  ----------------------------------
-    /*
-    try { // 1. [MessageDigest.update(byte input) -> void]
-        const digestKey = MessageDigest.update.overload(
-            "byte"
-        );
+    //  --------------------------------
+    // | MessageDigest.reset() overload |
+    //  --------------------------------
+    try { // 1. [MessageDigest.reset() -> void]
+        const digestKey = MessageDigest.reset.overload();
 
-        digestKey.implementation = function (input) {
-            digestKey.call(this, input);
+        digestKey.implementation = function () {
+            digestKey.call(this);
 
-            const lines = [];
+            const objectId = getObjectId("MessageDigest", this);
+            let state = messageDigestStates.get(objectId);
 
-            lines.push("1. [MessageDigest.update(byte input) -> void]");
-            lines.push("Input byte: " + input);
+            if (state !== undefined) {
+                state.resetOverload = "1. [MessageDigest.reset() -> void]";
+                state.resetCount = (state.resetCount || 0) + 1;
+                state.discardedUpdateInputs = state.updateInputs.slice();
+                state.discardedUpdateInputsLen = state.updateInputsLen.slice();
+                state.lastSeen = Date.now();
 
-            //lines.push(traceStack());
-
-            console.log(lines.join("\n"));
+                logging(state);
+                resetDigestState(state);
+            }
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
-    }
-    */
-
-    try { // 2. [MessageDigest.update(byte[] input) -> void]
-        const digestKey = MessageDigest.update.overload(
-            "[B"
-        );
-
-        digestKey.implementation = function (input) {
-            digestKey.call(this, input);
-
-            const lines = [];
-
-            lines.push("2. [MessageDigest.update(byte[] input) -> void]");
-            lines.push("Input bytes (HEX): " + bytesToHex(input, maxPrintableLength));
-            lines.push("Input bytes (ASCII): " + bytesToString(input, maxPrintableLength));
-
-            //lines.push(traceStack());
-
-            console.log(lines.join("\n"));
-        };
-    } catch (e) {
-        console.log("[+] Error message: " + e.message);
-    }
-
-    try { // 3. [MessageDigest.update(byte[] input, int offset, int len) -> void]
-        const digestKey = MessageDigest.update.overload(
-            "[B",
-            "int",
-            "int"
-        );
-
-        digestKey.implementation = function (input, offset, len) {
-            digestKey.call(this, input, offset, len);
-
-            const lines = [];
-
-            lines.push("3. [MessageDigest.update(byte[] input, int offset, int len) -> void]");
-            lines.push("Offset (start position): " + offset);
-            lines.push("Number of bytes to use from offset: " + len);
-            lines.push("Input byte array (HEX): " + bytesToHexRange(input, offset, len, maxPrintableLength));
-            lines.push("Input byte array (ASCII): " + bytesToStringRange(input, offset, len, maxPrintableLength));
-
-            //lines.push(traceStack());
-
-            console.log(lines.join("\n"));
-        };
-    } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 1. [MessageDigest.reset() -> void]: " + e.message);
     }
 });
