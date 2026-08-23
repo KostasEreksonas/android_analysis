@@ -279,7 +279,7 @@ Java.perform(function () {
         console.log("[+] ERROR - 1. [Cipher.getInstance(java.lang.String) -> static Cipher]: " + e.message);
     }
 
-    try { // 2. [Cipher.getInstance(java.lang.String, java.lang.String) -> static Cipher]
+    try { // 2. [Cipher.getInstance(String transformation, String provider) -> static Cipher]
         const instanceKey = Cipher.getInstance.overload(
             "java.lang.String",
             "java.lang.String"
@@ -294,7 +294,7 @@ Java.perform(function () {
                 objectId: objectId,
                 timestamp: Date.now(),
                 lastSeen: Date.now(),
-                instanceOverload: "2. [Cipher.getInstance(java.lang.String, java.lang.String) -> static Cipher]",
+                instanceOverload: "2. [Cipher.getInstance(String transformation, String provider) -> static Cipher]",
                 transformation: transformation,
                 algorithm: cipher.getAlgorithm(),
                 runtimeClass: cipher.getClass().getName(),
@@ -313,7 +313,7 @@ Java.perform(function () {
             return cipher;
         };
     } catch (e) {
-        console.log("[+] ERROR - 2. [Cipher.getInstance(java.lang.String, java.lang.String) -> static Cipher]: " + e.message);
+        console.log("[+] ERROR - 2. [Cipher.getInstance(String transformation, String provider) -> static Cipher]: " + e.message);
     }
 
     try { // 3. [Cipher.getInstance(String transformation, Provider provider) -> static Cipher]
