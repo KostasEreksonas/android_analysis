@@ -33,30 +33,31 @@ function fingerprint(input, type) {
 function bytesToHex(bytes, bufferOffset, bufferLength, maxLength) {
     if (bytes === null || bytes === undefined) return "<null>";
 
-    let result, start, end, byteArrayLength;
+    let result = "";
+    let start, end, length;
 
     if (bufferOffset === 0 && bufferLength === 0) {
         start = 0;
         end = bytes.length;
-        byteArrayLength = end;
     } else {
         start = bufferOffset;
         end = bufferOffset + bufferLength;
-        byteArrayLength = end - start;
     }
+
+    length = end - start;
 
     // If maxLength === 0, parse whole byte array
     // Truncate the log entry if maxLength < bytes.length
     const hasLimit = typeof maxLength === "number" && maxLength > 0;
-    const len = hasLimit ? Math.min(maxLength, byteArrayLength) : byteArrayLength;
+    const len = hasLimit ? Math.min(maxLength, length) : length;
 
-    for (let i = 0; i < len; i++) {
+    for (let i = start; i < len; i++) {
         let v = bytes[i];
         if (v < 0) v += 256;
         result += ("0" + v.toString(16)).slice(-2);
     }
 
-    if (hasLimit && byteArrayLength > len) result += ` ... [${byteArrayLength - len} more bytes]`;
+    if (hasLimit && length > len) result += ` ... [${length - len} more bytes]`;
 
     return result;
 }
@@ -64,24 +65,25 @@ function bytesToHex(bytes, bufferOffset, bufferLength, maxLength) {
 function bytesToString(bytes, bufferOffset, bufferLength, maxLength) {
     if (bytes === null || bytes === undefined) return "<null>";
 
-    let result, start, end, byteArrayLength;
+    let result = "";
+    let start, end, length;
 
     if (bufferOffset === 0 && bufferLength === 0) {
         start = 0;
         end = bytes.length;
-        byteArrayLength = end;
     } else {
         start = bufferOffset;
         end = bufferOffset + bufferLength;
-        byteArrayLength = end - start;
     }
+
+    length = end - start;
 
     // If maxLength === 0, parse whole byte array
     // Truncate the log entry if maxLength < bytes.length
     const hasLimit = typeof maxLength === "number" && maxLength > 0;
-    const len = hasLimit ? Math.min(maxLength, byteArrayLength) : byteArrayLength;
+    const len = hasLimit ? Math.min(maxLength, length) : length;
 
-    for (let i = 0; i < len; ++i) {
+    for (let i = start; i < len; ++i) {
         // Only convert printable ASCII characters (32-126); otherwise, use a placeholder dot (.)
         let val = bytes[i] & 0xFF;  // Get unsigned byte value
 
@@ -98,7 +100,7 @@ function bytesToString(bytes, bufferOffset, bufferLength, maxLength) {
         }
     }
 
-    if (hasLimit && byteArrayLength > len) result += ` ... [${byteArrayLength - len} more bytes]`;
+    if (hasLimit && length > len) result += ` ... [${length - len} more bytes]`;
 
     return result;
 }
