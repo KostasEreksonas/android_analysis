@@ -229,9 +229,17 @@ function truncateBase64(str) {
     return truncated;
 }
 
+function resetDigestState(state) {
+    state.updateInputs = [];
+    state.updateInputsLen = [];
+    state.updateOutputs = [];
+    state.updateOutputsLen = [];
+}
+
 Java.perform(function () {
     const cipherStates = new Map();
     const macStates = new Map();
+    const messageDigestStates = new Map();
 
     let decodeBase64Counter = 0;
     let encodeBase64Counter = 0;
@@ -1642,5 +1650,299 @@ Java.perform(function () {
         };
     } catch (e) {
         console.log("[+] ERROR - 3. [Base64.decode(byte[] input, int offset, int len, int flags) -> byte[]]: " + e.message);
+    }
+
+    //  -------------------------
+    // | MessageDigest overloads |
+    //  -------------------------
+    const MessageDigest = Java.use("java.security.MessageDigest");
+
+    //  ---------------------------------------
+    // | MessageDigest.getInstance() overloads |
+    //  ---------------------------------------
+    try {// 1. [MessageDigest.getInstance(java.lang.String) -> static MessageDigest]
+        const instanceKey = MessageDigest.getInstance.overload(
+            "java.lang.String"
+        );
+
+        instanceKey.implementation = function (transformation) {
+            const digest = instanceKey.call(MessageDigest, transformation);
+            const provider = digest.getProvider();
+            const objectId = getObjectId("MessageDigest", digest);
+
+            const state = {
+                objectId: objectId,
+                timestamp: Date.now(),
+                lastSeen: Date.now(),
+                instanceOverload: "1. [MessageDigest.getInstance(java.lang.String) -> static MessageDigest]",
+                transformation: transformation,
+                algorithm: digest.getAlgorithm(),
+                runtimeClass: digest.getClass().getName(),
+                providerName: provider.getName(),
+                providerVersion: provider.getVersion(),
+                providerInfo: provider.getInfo(),
+                providerClass: provider.getClass().getName(),
+                updateInputs: [],
+                updateInputsLen: [],
+                updateOutputs: [],
+                updateOutputsLen: []
+            };
+
+            messageDigestStates.set(objectId, state);
+
+            return digest;
+        }
+    } catch (e) {
+        console.log("[+] ERROR - 1. [MessageDigest.getInstance(java.lang.String) -> static MessageDigest]: " + e.message);
+    }
+
+    try { // 2. [MessageDigest.getInstance(String transformation, String provider) -> static MessageDigest]
+        const instanceKey = MessageDigest.getInstance.overload(
+            "java.lang.String",
+            "java.lang.String"
+        );
+
+        instanceKey.implementation = function (transformation, provider) {
+            const digest = instanceKey.call(MessageDigest, transformation, provider);
+            const digestProvider = digest.getProvider();
+            const objectId = getObjectId("MessageDigest", digest);
+
+            const state = {
+                objectId: objectId,
+                timestamp: Date.now(),
+                lastSeen: Date.now(),
+                instanceOverload: "2. [MessageDigest.getInstance(String transformation, String provider) -> static MessageDigest]",
+                transformation: transformation,
+                algorithm: digest.getAlgorithm(),
+                runtimeClass: digest.getClass().getName(),
+                providerName: digestProvider.getName(),
+                providerVersion: digestProvider.getVersion(),
+                providerInfo: digestProvider.getInfo(),
+                providerClass: digestProvider.getClass().getName(),
+                updateInputs: [],
+                updateInputsLen: [],
+                updateOutputs: [],
+                updateOutputsLen: []
+            };
+
+            messageDigestStates.set(objectId, state);
+
+            return digest;
+        };
+    } catch (e) {
+        console.log("[+] ERROR - 2. [MessageDigest.getInstance(String transformation, String provider) -> static MessageDigest]: " + e.message);
+    }
+
+    try { // 3. [MessageDigest.getInstance(String transformation, Provider provider) -> static MessageDigest]
+        const instanceKey = MessageDigest.getInstance.overload(
+            "java.lang.String",
+            "java.security.Provider"
+        );
+
+        instanceKey.implementation = function (transformation, provider) {
+            const digest = instanceKey.call(MessageDigest, transformation, provider);
+            const objectId = getObjectId("MessageDigest", digest);
+
+            const state = {
+                objectId: objectId,
+                timestamp: Date.now(),
+                lastSeen: Date.now(),
+                instanceOverload: "3. [MessageDigest.getInstance(String transformation, Provider provider) -> static MessageDigest]",
+                transformation: transformation,
+                algorithm: digest.getAlgorithm(),
+                runtimeClass: digest.getClass().getName(),
+                providerName: provider.getName(),
+                providerVersion: provider.getVersion(),
+                providerInfo: provider.getInfo(),
+                providerClass: provider.getClass().getName(),
+                updateInputs: [],
+                updateInputsLen: [],
+                updateOutputs: [],
+                updateOutputsLen: []
+            };
+
+            messageDigestStates.set(objectId, state);
+
+            return digest;
+        };
+    } catch (e) {
+        console.log("[+] ERROR - 3. [MessageDigest.getInstance(String transformation, Provider provider) -> static MessageDigest]: " + e.message);
+    }
+
+    //  ----------------------------------
+    // | MessageDigest.update() overloads |
+    //  ----------------------------------
+    try { // 1. [MessageDigest.update(byte[] input) -> void]
+        const digestKey = MessageDigest.update.overload(
+            "[B"
+        );
+
+        digestKey.implementation = function (input) {
+            digestKey.call(this, input);
+
+            const objectId = getObjectId("MessageDigest", this);
+            let state = messageDigestStates.get(objectId);
+
+            if (state !== undefined) {
+                state.updateOverload = "1. [MessageDigest.update(byte[] input) -> void]";
+                state.updateInputs.push(bytesToHex(input, 0, 0, maxPrintableLength));
+                state.updateInputsLen.push(input.length);
+                state.lastSeen = Date.now();
+            }
+        };
+    } catch (e) {
+        console.log("[+] ERROR - 1. [MessageDigest.update(byte[] input) -> void]: " + e.message);
+    }
+
+    try { // 2. [MessageDigest.update(byte[] input, int offset, int len) -> void]
+        const digestKey = MessageDigest.update.overload(
+            "[B",
+            "int",
+            "int"
+        );
+
+        digestKey.implementation = function (input, offset, len) {
+            digestKey.call(this, input, offset, len);
+
+            const objectId = getObjectId("MessageDigest", this);
+            let state = messageDigestStates.get(objectId);
+            let length = len - offset;
+
+            if (state !== undefined) {
+                state.updateOverload = "2. [MessageDigest.update(byte[] input, int offset, int len) -> void]";
+                state.updateInputs.push(bytesToHex(input, offset, len, maxPrintableLength));
+                state.updateInputsLen.push(length);
+                state.lastSeen = Date.now();
+            }
+        };
+    } catch (e) {
+        console.log("[+] ERROR - 2. [MessageDigest.update(byte[] input, int offset, int len) -> void]: " + e.message);
+    }
+
+    //  ----------------------------------
+    // | MessageDigest.digest() overloads |
+    //  ----------------------------------
+    try { // 1. [MessageDigest.digest() -> byte[]]
+        const digestKey = MessageDigest.digest.overload();
+
+        digestKey.implementation = function () {
+            const output = digestKey.call(this);
+            const objectId = getObjectId("MessageDigest", this);
+            let state = messageDigestStates.get(objectId);
+
+            if (state !== undefined) {
+                state.digestOverload = "1. [MessageDigest.digest() -> byte[]]";
+
+                if (output !== null) {
+                    state.digestedHash = bytesToHex(output, 0, 0, maxPrintableLength);
+                    state.digestedHashLength = output.length;
+                    state.digestedHashFingerprint = fingerprint(output, typeof(output));
+                    state.lastSeen = Date.now();
+                }
+
+                logging(state);
+                resetDigestState(state);
+            }
+
+            return output;
+        };
+    } catch (e) {
+        console.log("[+] ERROR - 1. [MessageDigest.digest() -> byte[]]: " + e.message);
+    }
+
+    try { // 2. [MessageDigest.digest(byte[] input) -> byte[]]
+        const digestKey = MessageDigest.digest.overload(
+            "[B"
+        );
+
+        digestKey.implementation = function (input) {
+            const output = digestKey.call(this, input);
+            const objectId = getObjectId("MessageDigest", this);
+            let state = messageDigestStates.get(objectId);
+
+            if (state !== undefined) {
+                state.digestOverload = "2. [MessageDigest.digest(byte[] input) -> byte[]]";
+                state.updateInputs.push(bytesToHex(input, 0, 0, maxPrintableLength));
+                state.updateInputsLen.push(input.length);
+
+                if (output !== null) {
+                    state.digestedHash = bytesToHex(output, 0, 0, maxPrintableLength);
+                    state.digestedHashLength = output.length;
+                    state.digestedHashFingerprint = fingerprint(output, typeof(output));
+                    state.lastSeen = Date.now();
+                }
+
+                logging(state);
+                resetDigestState(state);
+            }
+
+            return output;
+        };
+    } catch (e) {
+        console.log("[+] ERROR - 2. [MessageDigest.digest(byte[] input) -> byte[]]: " + e.message);
+    }
+
+    try { // 3. [MessageDigest.digest(byte[] buf, int offset, int len) -> int]
+        const digestKey = MessageDigest.digest.overload(
+            "[B",
+            "int",
+            "int"
+        );
+
+        digestKey.implementation = function (outputBuf, offset, len) {
+            const outputLen = digestKey.call(this, outputBuf, offset, len);
+            const objectId = getObjectId("MessageDigest", this);
+            let state = messageDigestStates.get(objectId);
+
+            if (state !== undefined) {
+                state.digestOverload = "3. [MessageDigest.digest(byte[] input, int offset, int len) -> int]";
+
+                if (outputLen > 0) {
+                    state.digestedHash = bytesToHex(outputBuf, offset, len, maxPrintableLength);
+                    state.digestedHashLength = outputLen;
+                    state.digestedHashFingerprint = fingerprint(outputBuf, typeof(outputBuf));
+                    state.lastSeen = Date.now();
+                } else {
+                    state.digestedHash = "";
+                    state.digestedHashLength = 0;
+                    state.digestedHashFingerprint = fingerprint(outputBuf, typeof(outputBuf));
+                    state.lastSeen = Date.now();
+                }
+
+                logging(state);
+                resetDigestState(state);
+            }
+
+            return outputLen;
+        };
+    } catch (e) {
+        console.log("[+] ERROR - 3. [MessageDigest.digest(byte[] input, int offset, int len) -> int]: " + e.message);
+    }
+
+    //  --------------------------------
+    // | MessageDigest.reset() overload |
+    //  --------------------------------
+    try { // 1. [MessageDigest.reset() -> void]
+        const digestKey = MessageDigest.reset.overload();
+
+        digestKey.implementation = function () {
+            digestKey.call(this);
+
+            const objectId = getObjectId("MessageDigest", this);
+            let state = messageDigestStates.get(objectId);
+
+            if (state !== undefined) {
+                state.resetOverload = "1. [MessageDigest.reset() -> void]";
+                state.resetCount = (state.resetCount || 0) + 1;
+                state.discardedUpdateInputs = state.updateInputs.slice();
+                state.discardedUpdateInputsLen = state.updateInputsLen.slice();
+                state.lastSeen = Date.now();
+
+                logging(state);
+                resetDigestState(state);
+            }
+        };
+    } catch (e) {
+        console.log("[+] ERROR - 1. [MessageDigest.reset() -> void]: " + e.message);
     }
 });
