@@ -115,7 +115,7 @@ function logKey(state, key) {
     if (encoded !== null) {
         state.keyBytesHex = bytesToHex(encoded, 0, 0, maxPrintableLength);
         state.keyBytesString = bytesToString(encoded, 0, 0, maxPrintableLength);
-        state.keyBytesFingerprint = fingerprint(encoded, typeof(encoded));
+        state.keyBytesFingerprint = fingerprint(encoded, typeof (encoded));
     } else {
         state.keyBytes = "<unavailable>";
     }
@@ -148,7 +148,7 @@ function logAlgorithmParameterSpec(state, params) {
         const ivValue = ivSpec.getIV();
 
         state.iv = bytesToHex(ivValue, 0, 0, maxPrintableLength);
-        state.ivFingerprint = fingerprint(ivValue, typeof(ivValue));
+        state.ivFingerprint = fingerprint(ivValue, typeof (ivValue));
     }
 
     if (params.$className === "javax.crypto.spec.GCMParameterSpec") {
@@ -211,7 +211,21 @@ function getObjectId(name, obj) {
     if (obj === null || obj === undefined) return name + "-<null>";
 
     return name + "-" + obj.hashCode().toString();
-};
+}
+
+function truncateBase64(str) {
+    // Truncate a Base64 string returned by java.lang.String objet
+    let truncated;
+
+    if (str.length > maxPrintableLength) {
+        truncated = str.substring(0, maxPrintableLength);
+        truncated += ` ... [${str.length - maxPrintableLength} more bytes]`;
+    } else {
+        truncated = str;
+    }
+
+    return truncated;
+}
 
 Java.perform(function () {
     const cipherStates = new Map();
@@ -262,7 +276,7 @@ Java.perform(function () {
             return cipher;
         }
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 1. [Cipher.getInstance(java.lang.String) -> static Cipher]: " + e.message);
     }
 
     try { // 2. [Cipher.getInstance(java.lang.String, java.lang.String) -> static Cipher]
@@ -299,7 +313,7 @@ Java.perform(function () {
             return cipher;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 2. [Cipher.getInstance(java.lang.String, java.lang.String) -> static Cipher]: " + e.message);
     }
 
     try { // 3. [Cipher.getInstance(String transformation, Provider provider) -> static Cipher]
@@ -370,7 +384,7 @@ Java.perform(function () {
             };
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 1. [Cipher.init(int opmode, Certificate certificate) -> void]: " + e.message);
     }
 
     try { // 2. [Cipher.init(int opmode, Certificate certificate, SecureRandom random) -> void]
@@ -403,7 +417,7 @@ Java.perform(function () {
             };
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 2. [Cipher.init(int opmode, Certificate certificate, SecureRandom random) -> void]: " + e.message);
     }
 
     try { // 3. [Cipher.init(int opmode, Key key) -> void]
@@ -435,7 +449,7 @@ Java.perform(function () {
             };
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 3. [Cipher.init(int opmode, Key key) -> void]: " + e.message);
     }
 
     try { // 4. [Cipher.init(int opmode, Key key, AlgorithmParameters params) -> void]
@@ -469,7 +483,7 @@ Java.perform(function () {
             };
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 4. [Cipher.init(int opmode, Key key, AlgorithmParameters params) -> void]: " + e.message);
     }
 
     try { // 5. [Cipher.init(int opmode, Key key, AlgorithmParameterSpec params) -> void]
@@ -503,7 +517,7 @@ Java.perform(function () {
             };
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 5. [Cipher.init(int opmode, Key key, AlgorithmParameterSpec params) -> void]: " + e.message);
     }
 
     try { // 6. [Cipher.init(int opmode, Key key, AlgorithmParameterSpec params, SecureRandom random) -> void]
@@ -539,7 +553,7 @@ Java.perform(function () {
             };
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 6. [Cipher.init(int opmode, Key key, AlgorithmParameterSpec params, SecureRandom random) -> void]: " + e.message);
     }
 
     try { // 7. [Cipher.init(int opmode, Key key, AlgorithmParameters params, SecureRandom random) -> void]
@@ -575,7 +589,7 @@ Java.perform(function () {
             };
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 7. [Cipher.init(int opmode, Key key, AlgorithmParameters params, SecureRandom random) -> void]: " + e.message);
     }
 
     try { // 8. [Cipher.init(int opmode, Key key, SecureRandom random) -> void]
@@ -609,7 +623,7 @@ Java.perform(function () {
             };
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 8. [Cipher.init(int opmode, Key key, SecureRandom random) -> void]: " + e.message);
     }
 
     //  -------------------------
@@ -638,7 +652,7 @@ Java.perform(function () {
             return output;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 1. [Cipher.update(byte[] input) -> byte[]]: " + e.message);
     }
 
     try { // 2. [Cipher.update(byte[] input, int inputOffset, int inputLen) -> byte[]]
@@ -673,7 +687,7 @@ Java.perform(function () {
             return output;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 2. [Cipher.update(byte[] input, int inputOffset, int inputLen) -> byte[]]: " + e.message);
     }
 
     try { // 3. [Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output) -> int]
@@ -709,7 +723,7 @@ Java.perform(function () {
             return outputLen;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 3. [Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output) -> int]: " + e.message);
     }
 
     try { // 4. [Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]
@@ -746,7 +760,7 @@ Java.perform(function () {
             return outputLen;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 4. [Cipher.update(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]: " + e.message);
     }
 
     //  --------------------------
@@ -770,8 +784,8 @@ Java.perform(function () {
                 } else if (state.opmode === 2) {
                     state.output = bytesToString(output, 0, 0, maxPrintableLength);
                 }
-            
-                state.outputFingerprint = fingerprint(output, typeof(output));
+
+                state.outputFingerprint = fingerprint(output, typeof (output));
                 state.stackTrace = traceStack();
                 state.lastSeen = Date.now();
 
@@ -781,7 +795,7 @@ Java.perform(function () {
             return output;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 1. [Cipher.doFinal() -> byte[]]: " + e.message);
     }
 
     try { // 2. [Cipher.doFinal(byte[] input) -> byte[]]
@@ -806,8 +820,8 @@ Java.perform(function () {
                     state.input = bytesToHex(input, 0, 0, maxPrintableLength);
                     state.output = bytesToString(output, 0, 0, maxPrintableLength);
                 }
-            
-                state.outputFingerprint = fingerprint(output, typeof(output));
+
+                state.outputFingerprint = fingerprint(output, typeof (output));
                 state.stackTrace = traceStack();
                 state.lastSeen = Date.now();
 
@@ -817,7 +831,7 @@ Java.perform(function () {
             return output;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 2. [Cipher.doFinal(byte[] input) -> byte[]]: " + e.message);
     }
 
     try { // 3. [Cipher.doFinal(byte[] output, int outputOffset) -> int]
@@ -842,8 +856,8 @@ Java.perform(function () {
                 } else if (state.opmode === 2) {
                     state.output = bytesToString(output, outputOffset, outputLen, maxPrintableLength);
                 }
-            
-                state.outputFingerprint = fingerprint(output, typeof(output));
+
+                state.outputFingerprint = fingerprint(output, typeof (output));
                 state.stackTrace = traceStack();
                 state.lastSeen = Date.now();
 
@@ -853,7 +867,7 @@ Java.perform(function () {
             return outputLen;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 3. [Cipher.doFinal(byte[] output int outputOffset) -> int]: " + e.message);
     }
 
     try { // 4. [Cipher.doFinal(byte[] input, int inputOffset, int inputLen) -> byte[]]
@@ -881,8 +895,8 @@ Java.perform(function () {
                     state.input = bytesToHex(input, inputOffset, inputLen, maxPrintableLength);
                     state.output = bytesToString(output, 0, 0, maxPrintableLength);
                 }
-            
-                state.outputFingerprint = fingerprint(output, typeof(output));
+
+                state.outputFingerprint = fingerprint(output, typeof (output));
                 state.stackTrace = traceStack();
                 state.lastSeen = Date.now();
 
@@ -892,7 +906,7 @@ Java.perform(function () {
             return output;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 4. [Cipher.doFinal(byte[] input int inputOffset, int inputLen) -> byte[]]: " + e.message);
     }
 
     try { // 5. [Cipher.doFinal(byte[] input, int inputOffset, int inputLen, byte[] output) -> int]
@@ -921,8 +935,8 @@ Java.perform(function () {
                     state.input = bytesToHex(input, inputOffset, inputLen, maxPrintableLength);
                     state.output = bytesToString(output, 0, outputLen, maxPrintableLength);
                 }
-            
-                state.outputFingerprint = fingerprint(output, typeof(output));
+
+                state.outputFingerprint = fingerprint(output, typeof (output));
                 state.stackTrace = traceStack();
                 state.lastSeen = Date.now();
 
@@ -932,7 +946,7 @@ Java.perform(function () {
             return outputLen;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 5. [Cipher.doFinal(byte[] input int inputOffset, int inputLen, byte[] output) -> int]: " + e.message);
     }
 
     try { // 6. [Cipher.doFinal(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]
@@ -962,8 +976,8 @@ Java.perform(function () {
                     state.input = bytesToHex(input, inputOffset, inputLen, maxPrintableLength);
                     state.output = bytesToString(output, outputOffset, outputLen, maxPrintableLength);
                 }
-            
-                state.outputFingerprint = fingerprint(output, typeof(output));
+
+                state.outputFingerprint = fingerprint(output, typeof (output));
                 state.stackTrace = traceStack();
                 state.lastSeen = Date.now();
 
@@ -973,7 +987,7 @@ Java.perform(function () {
             return outputLen;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 6. [Cipher.doFinal(byte[] input int inputOffset, int inputLen, byte[] output, int outputOffset) -> int]: " + e.message);
     }
 
     try { // 7. [Cipher.doFinal(ByteBuffer input, ByteBuffer output) -> int]
@@ -1001,8 +1015,8 @@ Java.perform(function () {
                     state.input = bytesToHex(duplicateInput, 0, 0, maxPrintableLength);
                     state.output = bytesToString(duplicateOutput, 0, 0, maxPrintableLength);
                 }
-            
-                state.outputFingerprint = fingerprint(output, typeof(output));
+
+                state.outputFingerprint = fingerprint(output, typeof (output));
                 state.stackTrace = traceStack();
                 state.lastSeen = Date.now();
 
@@ -1012,7 +1026,7 @@ Java.perform(function () {
             return outputLen;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 7. [Cipher.doFinal(ByteBuffer input, ByteBuffer output) -> int]: " + e.message);
     }
 
     //  ---------------
@@ -1054,7 +1068,7 @@ Java.perform(function () {
             return instance;
         }
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 1. [Mac.getInstance(java.lang.String) -> static Mac]: " + e.message);
     }
 
     try { // 2. [Mac.getInstance(java.lang.String, java.lang.String) -> static Mac]
@@ -1089,7 +1103,7 @@ Java.perform(function () {
             return instance;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 2. [Mac.getInstance(java.lang.String, java.lang.String) -> static Mac]: " + e.message);
     }
 
     try { // 3. [Mac.getInstance(java.lang.String, java.security.Provider) -> static Mac]
@@ -1123,7 +1137,7 @@ Java.perform(function () {
             return instance;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 3. [Mac.getInstance(java.lang.String, java.security.Provider) -> static Mac]: " + e.message);
     }
 
     //  ----------------------
@@ -1151,7 +1165,7 @@ Java.perform(function () {
             }
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 1. [Mac.init(Key key) -> void]: " + e.message);
     }
 
     try { // 2. [Mac.init(Key key, AlgorithmParameterSpec params) -> void]
@@ -1171,14 +1185,14 @@ Java.perform(function () {
                 state.initOverload = "2. [Mac.init(Key key, AlgorithmParameterSpec params) -> void]";
 
                 logKey(state, key);
-                console.log("Params: " + params);
+                state.parameters = params;
                 logAlgorithmParameterSpec(state, params);
 
                 state.lastSeen = Date.now();
             }
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 2. [Mac.init(Key key, AlgorithmParameterSpec params) -> void]: " + e.message);
     }
 
     try { // 1. [Mac.update(byte[] input) -> void]
@@ -1201,7 +1215,7 @@ Java.perform(function () {
             }
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 1. [Mac.update(byte[] input) -> void]: " + e.message);
     }
 
     try { // 2. [Mac.update(byte[] input, int offset, int len) -> void]
@@ -1226,7 +1240,7 @@ Java.perform(function () {
             }
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 2. [Mac.update(byte[] input, int offset, int len) -> void]: " + e.message);
     }
 
     //  -------------------------
@@ -1249,7 +1263,7 @@ Java.perform(function () {
 
                 if (output !== null) {
                     state.output = bytesToHex(output, 0, 0, maxPrintableLength);
-                    state.outputFingerprint = fingerprint(output, typeof(output));
+                    state.outputFingerprint = fingerprint(output, typeof (output));
                 } else {
                     state.output = "<undefined>";
                 }
@@ -1263,7 +1277,7 @@ Java.perform(function () {
             return output;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 1. [Mac.doFinal() -> byte[]]: " + e.message);
     }
 
     try { // 2. [Mac.doFinal(byte[] input) -> byte[]]
@@ -1281,7 +1295,7 @@ Java.perform(function () {
                 state.finalOverload = "2. [Mac.doFinal(byte[] input) -> byte[]]";
                 state.inputHex = bytesToHex(input, 0, 0, maxPrintableLength);
                 state.inputString = bytesToString(input, 0, 0, maxPrintableLength);
-                state.inputFingerprint = fingerprint(input, typeof(input));
+                state.inputFingerprint = fingerprint(input, typeof (input));
 
                 const macLength = this.getMacLength();
                 state.bytesWritten = macLength;
@@ -1291,7 +1305,7 @@ Java.perform(function () {
 
                 if (output !== null) {
                     state.output = bytesToHex(output, 0, 0, maxPrintableLength);
-                    state.outputFingerprint = fingerprint(output, typeof(output));
+                    state.outputFingerprint = fingerprint(output, typeof (output));
                 } else {
                     state.output = "<undefined>";
                 }
@@ -1305,7 +1319,7 @@ Java.perform(function () {
             return output;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 2. [Mac.doFinal(byte[] input) -> byte[]]: " + e.message);
     }
 
     try { // 3. [Mac.doFinal(byte[] output, int outOffset) -> void]
@@ -1339,7 +1353,7 @@ Java.perform(function () {
             };
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 3. [Mac.doFinal(byte[] output, int outOffset) -> void]: " + e.message);
     }
 
     //  ------------------
@@ -1374,8 +1388,8 @@ Java.perform(function () {
                 outputHex: bytesToHex(encodedString, 0, 0, maxPrintableLength),
                 outputString: bytesToString(encodedString, 0, 0, maxPrintableLength),
                 outputLength: encodedString.length,
-                inputFingerprint: fingerprint(input, typeof(input)),
-                outputFingerprint: fingerprint(encodedString, typeof(encodedString)),
+                inputFingerprint: fingerprint(input, typeof (input)),
+                outputFingerprint: fingerprint(encodedString, typeof (encodedString)),
                 stackTrace: traceStack()
             }
 
@@ -1384,7 +1398,7 @@ Java.perform(function () {
             return encodedString;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 1. [Base64.encode(byte[] input, int flags) -> byte[]]: " + e.message);
     }
 
     try { // 2. [Base64.encode(byte[] input, int offset, int len, int flags) -> byte[]]
@@ -1415,8 +1429,8 @@ Java.perform(function () {
                 outputHex: bytesToHex(encodedString, 0, 0, maxPrintableLength),
                 outputString: bytesToString(encodedString, 0, 0, maxPrintableLength),
                 outputLength: encodedString.length,
-                inputFingerprint: fingerprint(input, typeof(input)),
-                outputFingerprint: fingerprint(encodedString, typeof(encodedString)),
+                inputFingerprint: fingerprint(input, typeof (input)),
+                outputFingerprint: fingerprint(encodedString, typeof (encodedString)),
                 stackTrace: traceStack()
             }
 
@@ -1425,7 +1439,7 @@ Java.perform(function () {
             return encodedString;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 2. [Base64.encode(byte[] input, int offset, int len, int flags]) -> byte[]]: " + e.message);
     }
 
     //  ---------------------------------
@@ -1443,13 +1457,7 @@ Java.perform(function () {
             const flagString = base64FlagsToString(flags);
             encodeToStringBase64Counter++;
 
-            let truncated = "";
-            if (encodedString.length > maxPrintableLength) {
-                truncated = encodedString.substring(0, maxPrintableLength);
-                truncated += ` ... [${encodedString.length - maxPrintableLength} more bytes]`;
-            } else {
-                truncated = encodedString;
-            }
+            let truncated = truncateBase64(encodedString);
 
             const state = {
                 objectId: objectId,
@@ -1462,8 +1470,8 @@ Java.perform(function () {
                 flagString: flagString,
                 outputString: truncated,
                 outputLength: encodedString.length,
-                inputFingerprint: fingerprint(input, typeof(input)),
-                outputFingerprint: fingerprint(encodedString, typeof(encodedString)),
+                inputFingerprint: fingerprint(input, typeof (input)),
+                outputFingerprint: fingerprint(encodedString, typeof (encodedString)),
                 stackTrace: traceStack()
             }
 
@@ -1472,7 +1480,7 @@ Java.perform(function () {
             return encodedString;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 1. [Base64.encodeToString(byte[] input, int flags) -> java.lang.String]: " + e.message);
     }
 
     try { // 2. [Base64.encodeToString(byte[] input, int offset, int len, int flags) -> java.lang.String]
@@ -1489,13 +1497,7 @@ Java.perform(function () {
             const flagString = base64FlagsToString(flags);
             encodeToStringBase64Counter++;
 
-            let truncated = "";
-            if (encodedString.length > maxPrintableLength) {
-                truncated = encodedString.substring(0, maxPrintableLength);
-                truncated += ` ... [${encodedString.length - maxPrintableLength} more bytes]`;
-            } else {
-                truncated = encodedString;
-            }
+            let truncated = truncateBase64(encodedString);
 
             const state = {
                 objectId: objectId,
@@ -1510,8 +1512,8 @@ Java.perform(function () {
                 flagString: flagString,
                 outputString: truncated,
                 outputLength: encodedString.length,
-                inputFingerprint: fingerprint(input, typeof(input)),
-                outputFingerprint: fingerprint(encodedString, typeof(encodedString)),
+                inputFingerprint: fingerprint(input, typeof (input)),
+                outputFingerprint: fingerprint(encodedString, typeof (encodedString)),
                 stackTrace: traceStack()
             }
 
@@ -1520,7 +1522,7 @@ Java.perform(function () {
             return encodedString;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 2. [Base64.encodeToString(byte[input, int offset, int len, int flags]) -> java.lang.String]: " + e.message);
     }
 
     //  -------------------------
@@ -1538,13 +1540,7 @@ Java.perform(function () {
             const flagString = base64FlagsToString(flags);
             decodeBase64Counter++;
 
-            let truncated = "";
-            if (str.length > maxPrintableLength) {
-                truncated = str.substring(0, maxPrintableLength);
-                truncated += ` ... [${str.length - maxPrintableLength} more bytes]`;
-            } else {
-                truncated = str;
-            }
+            let truncated = truncateBase64(str);
 
             const state = {
                 objectId: objectId,
@@ -1557,8 +1553,8 @@ Java.perform(function () {
                 outputHex: bytesToHex(decodedString, 0, 0, maxPrintableLength),
                 outputString: bytesToString(decodedString, 0, 0, maxPrintableLength),
                 outputLength: decodedString.length,
-                inputFingerprint: fingerprint(str, typeof(str)),
-                outputFingerprint: fingerprint(decodedString, typeof(decodedString)),
+                inputFingerprint: fingerprint(str, typeof (str)),
+                outputFingerprint: fingerprint(decodedString, typeof (decodedString)),
                 stackTrace: traceStack()
             }
 
@@ -1567,7 +1563,7 @@ Java.perform(function () {
             return decodedString;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 1. [Base64.decode(java.lang.String str, int flags) -> byte[]]: " + e.message);
     }
 
     try { // 2. [Base64.decode(byte[] input, int flags) -> byte[]]
@@ -1594,8 +1590,8 @@ Java.perform(function () {
                 outputHex: bytesToHex(decodedString, 0, 0, maxPrintableLength),
                 outputString: bytesToString(decodedString, 0, 0, maxPrintableLength),
                 outputLength: decodedString.length,
-                inputFingerprint: fingerprint(input, typeof(input)),
-                outputFingerprint: fingerprint(decodedString, typeof(decodedString)),
+                inputFingerprint: fingerprint(input, typeof (input)),
+                outputFingerprint: fingerprint(decodedString, typeof (decodedString)),
                 stackTrace: traceStack()
             }
 
@@ -1604,7 +1600,7 @@ Java.perform(function () {
             return decodedString;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 2. [Base64.decode(byte[] input, int flags) -> byte[]]: " + e.message);
     }
 
     try { // 3. [Base64.decode(byte[] input, int offset, int len, int flags) -> byte[]]
@@ -1633,8 +1629,8 @@ Java.perform(function () {
                 outputHex: bytesToHex(decodedString, 0, 0, maxPrintableLength),
                 outputString: bytesToString(decodedString, 0, 0, maxPrintableLength),
                 outputLength: decodedString.length,
-                inputFingerprint: fingerprint(input, typeof(input)),
-                outputFingerprint: fingerprint(decodedString, typeof(decodedString)),
+                inputFingerprint: fingerprint(input, typeof (input)),
+                outputFingerprint: fingerprint(decodedString, typeof (decodedString)),
                 stackTrace: traceStack()
             }
 
@@ -1643,6 +1639,6 @@ Java.perform(function () {
             return decodedString;
         };
     } catch (e) {
-        console.log("[+] Error message: " + e.message);
+        console.log("[+] ERROR - 3. [Base64.decode(byte[] input, int offset, int len, int flags) -> byte[]]: " + e.message);
     }
 });
