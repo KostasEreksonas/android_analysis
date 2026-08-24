@@ -12,12 +12,15 @@ function logging(state) {
     console.log(JSON.stringify(state, null, 2));
 }
 
-function fingerprint(input, type) {
+function fingerprint(input, type, bufferOffset, bufferLength) {
     // Compute a 32-bit FNV-1a hash
     if (input === null || input === undefined) return "<null>";
+    
+    const start = (bufferOffset === undefined || bufferLength === undefined) ? 0 : bufferOffset;
+    const end = (bufferOffset === undefined || bufferLength === undefined) ? input.length : bufferOffset + bufferLength;
 
     let h = 2166136261;
-    for (let i = 0; i < input.length; i++) {
+    for (let i = start; i < end; i++) {
         if (type === "object") {
             h ^= (input[i] & 0xFF);
         } else if (type === "string") {
@@ -30,28 +33,18 @@ function fingerprint(input, type) {
     return (h >>> 0).toString(16).padStart(8, "0") + ":" + input.length;
 }
 
-function bytesToHex(bytes, bufferOffset, bufferLength, maxLength) {
+function bytesToHex(bytes, maxLength, bufferOffset, bufferLength) {
     if (bytes === null || bytes === undefined) return "<null>";
 
     let result = "";
-    let start, end, length;
 
-    if (bufferOffset === 0 && bufferLength === 0) {
-        start = 0;
-        end = bytes.length;
-    } else {
-        start = bufferOffset;
-        end = bufferOffset + bufferLength;
-    }
+    const start = (bufferOffset === undefined || bufferLength === undefined) ? 0 : bufferOffset;
+    const end = (bufferOffset === undefined || bufferLength === undefined) ? bytes.length : bufferOffset + bufferLength;
+    const length = end - start;
+    const hasLimit = typeof maxLength === "number" && maxLength > 0; // If maxLength === 0, parse whole byte array
+    const len = hasLimit ? Math.min(maxLength, length) : length; // Truncate the log entry if maxLength < bytes.length
 
-    length = end - start;
-
-    // If maxLength === 0, parse whole byte array
-    // Truncate the log entry if maxLength < bytes.length
-    const hasLimit = typeof maxLength === "number" && maxLength > 0;
-    const len = hasLimit ? Math.min(maxLength, length) : length;
-
-    for (let i = start; i < len; i++) {
+    for (let i = start; i < (start + len); i++) {
         let v = bytes[i];
         if (v < 0) v += 256;
         result += ("0" + v.toString(16)).slice(-2);
@@ -62,28 +55,18 @@ function bytesToHex(bytes, bufferOffset, bufferLength, maxLength) {
     return result;
 }
 
-function bytesToString(bytes, bufferOffset, bufferLength, maxLength) {
+function bytesToString(bytes, maxLength, bufferOffset, bufferLength) {
     if (bytes === null || bytes === undefined) return "<null>";
 
     let result = "";
-    let start, end, length;
 
-    if (bufferOffset === 0 && bufferLength === 0) {
-        start = 0;
-        end = bytes.length;
-    } else {
-        start = bufferOffset;
-        end = bufferOffset + bufferLength;
-    }
+    const start = (bufferOffset === undefined || bufferLength === undefined) ? 0 : bufferOffset;
+    const end = (bufferOffset === undefined || bufferLength === undefined) ? bytes.length : bufferOffset + bufferLength;
+    const length = end - start;
+    const hasLimit = typeof maxLength === "number" && maxLength > 0; // If maxLength === 0, parse whole byte array
+    const len = hasLimit ? Math.min(maxLength, length) : length; // Truncate the log entry if maxLength < bytes.length
 
-    length = end - start;
-
-    // If maxLength === 0, parse whole byte array
-    // Truncate the log entry if maxLength < bytes.length
-    const hasLimit = typeof maxLength === "number" && maxLength > 0;
-    const len = hasLimit ? Math.min(maxLength, length) : length;
-
-    for (let i = start; i < len; ++i) {
+    for (let i = start; i < (start + len); ++i) {
         // Only convert printable ASCII characters (32-126); otherwise, use a placeholder dot (.)
         let val = bytes[i] & 0xFF;  // Get unsigned byte value
 
@@ -115,9 +98,9 @@ function logKey(state, key) {
     const encoded = key.getEncoded();
 
     if (encoded !== null) {
-        state.keyBytesHex = bytesToHex(encoded, 0, 0, maxPrintableLength);
-        state.keyBytesString = bytesToString(encoded, 0, 0, maxPrintableLength);
-        state.keyBytesFingerprint = fingerprint(encoded, typeof (encoded));
+        state.keyBytesHex = bytesToHex(encoded, maxPrintableLength);
+        state.keyBytesString = bytesToString(encoded, maxPrintableLength);
+        state.keyBytesFingerprint = fingerprint(encoded, typeof(encoded));
     } else {
         state.keyBytes = "<unavailable>";
     }
@@ -150,7 +133,7 @@ function logAlgorithmParameterSpec(state, params) {
         const ivValue = ivSpec.getIV();
 
         state.iv = bytesToHex(ivValue, 0, 0, maxPrintableLength);
-        state.ivFingerprint = fingerprint(ivValue, typeof (ivValue));
+        state.ivFingerprint = fingerprint(ivValue, typeof(ivValue));
     }
 
     if (params.$className === "javax.crypto.spec.GCMParameterSpec") {
@@ -231,9 +214,8 @@ function truncateBase64(str) {
 
 function resetDigestState(state) {
     state.updateInputs = [];
+    state.updateInputsString = [];
     state.updateInputsLen = [];
-    state.updateOutputs = [];
-    state.updateOutputsLen = [];
 }
 
 Java.perform(function () {
@@ -269,9 +251,8 @@ Java.perform(function () {
                 providerInfo: provider.getInfo(),
                 providerClass: provider.getClass().getName(),
                 updateInputs: [],
+                updateInputsString: [],
                 updateInputsLen: [],
-                updateOutputs: [],
-                updateOutputsLen: []
             };
 
             messageDigestStates.set(objectId, state);
@@ -306,9 +287,8 @@ Java.perform(function () {
                 providerInfo: digestProvider.getInfo(),
                 providerClass: digestProvider.getClass().getName(),
                 updateInputs: [],
+                updateInputsString: [],
                 updateInputsLen: [],
-                updateOutputs: [],
-                updateOutputsLen: []
             };
 
             messageDigestStates.set(objectId, state);
@@ -342,9 +322,8 @@ Java.perform(function () {
                 providerInfo: provider.getInfo(),
                 providerClass: provider.getClass().getName(),
                 updateInputs: [],
+                updateInputsString: [],
                 updateInputsLen: [],
-                updateOutputs: [],
-                updateOutputsLen: []
             };
 
             messageDigestStates.set(objectId, state);
@@ -371,7 +350,7 @@ Java.perform(function () {
 
             if (state !== undefined) {
                 state.updateOverload = "1. [MessageDigest.update(byte[] input) -> void]";
-                state.updateInputs.push(bytesToHex(input, 0, 0, maxPrintableLength));
+                state.updateInputs.push(bytesToHex(input, maxPrintableLength));
                 state.updateInputsLen.push(input.length);
                 state.lastSeen = Date.now();
             }
@@ -396,7 +375,7 @@ Java.perform(function () {
 
             if (state !== undefined) {
                 state.updateOverload = "2. [MessageDigest.update(byte[] input, int offset, int len) -> void]";
-                state.updateInputs.push(bytesToHex(input, offset, len, maxPrintableLength));
+                state.updateInputs.push(bytesToHex(input, maxPrintableLength, offset, len));
                 state.updateInputsLen.push(length);
                 state.lastSeen = Date.now();
             }
@@ -448,11 +427,11 @@ Java.perform(function () {
 
             if (state !== undefined) {
                 state.digestOverload = "2. [MessageDigest.digest(byte[] input) -> byte[]]";
-                state.updateInputs.push(bytesToHex(input, 0, 0, maxPrintableLength));
+                state.updateInputs.push(bytesToHex(input, maxPrintableLength));
                 state.updateInputsLen.push(input.length);
 
                 if (output !== null) {
-                    state.digestedHash = bytesToHex(output, 0, 0, maxPrintableLength);
+                    state.digestedHash = bytesToHex(output, maxPrintableLength);
                     state.digestedHashLength = output.length;
                     state.digestedHashFingerprint = fingerprint(output, typeof(output));
                     state.lastSeen = Date.now();
@@ -484,14 +463,14 @@ Java.perform(function () {
                 state.digestOverload = "3. [MessageDigest.digest(byte[] input, int offset, int len) -> int]";
 
                 if (outputLen > 0) {
-                    state.digestedHash = bytesToHex(outputBuf, offset, len, maxPrintableLength);
+                    state.digestedHash = bytesToHex(outputBuf, offset, outputLen, maxPrintableLength);
                     state.digestedHashLength = outputLen;
-                    state.digestedHashFingerprint = fingerprint(outputBuf, typeof(outputBuf));
+                    state.digestedHashFingerprint = fingerprint(outputBuf, typeof(outputBuf), offset, outputLen);
                     state.lastSeen = Date.now();
                 } else {
                     state.digestedHash = "";
                     state.digestedHashLength = 0;
-                    state.digestedHashFingerprint = fingerprint(outputBuf, typeof(outputBuf));
+                    state.digestedHashFingerprint = fingerprint(outputBuf, typeof(outputBuf), offset, outputLen);
                     state.lastSeen = Date.now();
                 }
 
