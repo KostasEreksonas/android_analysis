@@ -115,7 +115,7 @@ function logAlgorithmParameters(state, params) {
     const encoded = params.getEncoded();
 
     if (encoded !== null) {
-        state.parameterEncoded = bytesToHex(params.getEncoded(), 0, 0, maxPrintableLength);
+        state.parameterEncoded = bytesToHex(params.getEncoded(), maxPrintableLength);
     } else {
         state.parameterEncoded = "<undefined>";
     }
@@ -132,7 +132,7 @@ function logAlgorithmParameterSpec(state, params) {
         const ivSpec = Java.cast(params, IvParameterSpec);
         const ivValue = ivSpec.getIV();
 
-        state.iv = bytesToHex(ivValue, 0, 0, maxPrintableLength);
+        state.iv = bytesToHex(ivValue, maxPrintableLength);
         state.ivFingerprint = fingerprint(ivValue, typeof(ivValue));
     }
 
@@ -140,7 +140,7 @@ function logAlgorithmParameterSpec(state, params) {
         const GCMParameterSpec = Java.use("javax.crypto.spec.GCMParameterSpec");
         const gcm = Java.cast(params, GCMParameterSpec);
 
-        state.gcmIv = bytesToHex(gcm.getIV(), 0, 0, maxPrintableLength);
+        state.gcmIv = bytesToHex(gcm.getIV(), maxPrintableLength);
         state.gcmTagBits = gcm.getTLen();
     }
 }
@@ -371,12 +371,11 @@ Java.perform(function () {
 
             const objectId = getObjectId("MessageDigest", this);
             let state = messageDigestStates.get(objectId);
-            let length = len - offset;
 
             if (state !== undefined) {
                 state.updateOverload = "2. [MessageDigest.update(byte[] input, int offset, int len) -> void]";
                 state.updateInputs.push(bytesToHex(input, maxPrintableLength, offset, len));
-                state.updateInputsLen.push(length);
+                state.updateInputsLen.push(len);
                 state.lastSeen = Date.now();
             }
         };
@@ -399,7 +398,7 @@ Java.perform(function () {
                 state.digestOverload = "1. [MessageDigest.digest() -> byte[]]";
 
                 if (output !== null) {
-                    state.digestedHash = bytesToHex(output, 0, 0, maxPrintableLength);
+                    state.digestedHash = bytesToHex(output, maxPrintableLength);
                     state.digestedHashLength = output.length;
                     state.digestedHashFingerprint = fingerprint(output, typeof(output));
                     state.lastSeen = Date.now();
@@ -463,7 +462,7 @@ Java.perform(function () {
                 state.digestOverload = "3. [MessageDigest.digest(byte[] input, int offset, int len) -> int]";
 
                 if (outputLen > 0) {
-                    state.digestedHash = bytesToHex(outputBuf, offset, outputLen, maxPrintableLength);
+                    state.digestedHash = bytesToHex(outputBuf, maxPrintableLength, offset, outputLen);
                     state.digestedHashLength = outputLen;
                     state.digestedHashFingerprint = fingerprint(outputBuf, typeof(outputBuf), offset, outputLen);
                     state.lastSeen = Date.now();
