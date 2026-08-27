@@ -12,7 +12,7 @@ dependency_checks() {
 	if ! which adb 2>/dev/null 1>&2
     then
         printf "%s\n" "${delimiter}"
-        printf "a[+] ndroid-tools not installed.\n"
+        printf "[+] android-tools not installed.\n"
         printf "%s\n" "${delimiter}"
         exit 1
 	fi
