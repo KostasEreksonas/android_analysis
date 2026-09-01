@@ -5,7 +5,7 @@ const Log = Java.use("android.util.Log");
 const Throwable = Java.use("java.lang.Throwable");
 
 function traceStack() {
-    return Log.getStackTraceString(Throwable.$new());
+    return Log.getStackTraceString(Throwable.$new()).split(/\n\t/);
 }
 
 function logging(state) {
@@ -15,7 +15,7 @@ function logging(state) {
 function fingerprint(input, type, bufferOffset, bufferLength) {
     // Compute a 32-bit FNV-1a hash
     if (input === null || input === undefined) return "<null>";
-    
+
     const start = (bufferOffset === undefined || bufferLength === undefined) ? 0 : bufferOffset;
     const end = (bufferOffset === undefined || bufferLength === undefined) ? input.length : bufferOffset + bufferLength;
 
@@ -100,7 +100,7 @@ function logKey(state, key) {
     if (encoded !== null) {
         state.keyBytesHex = bytesToHex(encoded, maxPrintableLength);
         state.keyBytesString = bytesToString(encoded, maxPrintableLength);
-        state.keyBytesFingerprint = fingerprint(encoded, typeof(encoded));
+        state.keyBytesFingerprint = fingerprint(encoded, typeof (encoded));
     } else {
         state.keyBytes = "<unavailable>";
     }
@@ -133,7 +133,7 @@ function logAlgorithmParameterSpec(state, params) {
         const ivValue = ivSpec.getIV();
 
         state.iv = bytesToHex(ivValue, maxPrintableLength);
-        state.ivFingerprint = fingerprint(ivValue, typeof(ivValue));
+        state.ivFingerprint = fingerprint(ivValue, typeof (ivValue));
     }
 
     if (params.$className === "javax.crypto.spec.GCMParameterSpec") {
@@ -777,7 +777,7 @@ Java.perform(function () {
                     state.output = bytesToString(output, maxPrintableLength);
                 }
 
-                state.outputFingerprint = fingerprint(output, typeof(output));
+                state.outputFingerprint = fingerprint(output, typeof (output));
                 state.stackTrace = traceStack();
                 state.lastSeen = Date.now();
 
@@ -813,7 +813,7 @@ Java.perform(function () {
                     state.output = bytesToString(output, maxPrintableLength);
                 }
 
-                state.outputFingerprint = fingerprint(output, typeof(output));
+                state.outputFingerprint = fingerprint(output, typeof (output));
                 state.stackTrace = traceStack();
                 state.lastSeen = Date.now();
 
@@ -849,7 +849,7 @@ Java.perform(function () {
                     state.output = bytesToString(output, maxPrintableLength, outputOffset, outputLen);
                 }
 
-                state.outputFingerprint = fingerprint(output, typeof(output), outputOffset, outputLen);
+                state.outputFingerprint = fingerprint(output, typeof (output), outputOffset, outputLen);
                 state.stackTrace = traceStack();
                 state.lastSeen = Date.now();
 
@@ -888,7 +888,7 @@ Java.perform(function () {
                     state.output = bytesToString(output, maxPrintableLength);
                 }
 
-                state.outputFingerprint = fingerprint(output, typeof(output));
+                state.outputFingerprint = fingerprint(output, typeof (output));
                 state.stackTrace = traceStack();
                 state.lastSeen = Date.now();
 
@@ -928,7 +928,7 @@ Java.perform(function () {
                     state.output = bytesToString(output, maxPrintableLength, 0, outputLen);
                 }
 
-                state.outputFingerprint = fingerprint(output, typeof(output), 0, outputLen);
+                state.outputFingerprint = fingerprint(output, typeof (output), 0, outputLen);
                 state.stackTrace = traceStack();
                 state.lastSeen = Date.now();
 
@@ -969,7 +969,7 @@ Java.perform(function () {
                     state.output = bytesToString(output, maxPrintableLength, outputOffset, outputLen);
                 }
 
-                state.outputFingerprint = fingerprint(output, typeof(output), outputOffset, outputLen);
+                state.outputFingerprint = fingerprint(output, typeof (output), outputOffset, outputLen);
                 state.stackTrace = traceStack();
                 state.lastSeen = Date.now();
 
@@ -1008,7 +1008,7 @@ Java.perform(function () {
                     state.output = bytesToString(duplicateOutput, maxPrintableLength);
                 }
 
-                state.outputFingerprint = fingerprint(output, typeof(output));
+                state.outputFingerprint = fingerprint(output, typeof (output));
                 state.stackTrace = traceStack();
                 state.lastSeen = Date.now();
 
@@ -1255,7 +1255,7 @@ Java.perform(function () {
 
                 if (output !== null) {
                     state.output = bytesToHex(output, maxPrintableLength);
-                    state.outputFingerprint = fingerprint(output, typeof(output));
+                    state.outputFingerprint = fingerprint(output, typeof (output));
                 } else {
                     state.output = "<undefined>";
                 }
@@ -1287,7 +1287,7 @@ Java.perform(function () {
                 state.finalOverload = "2. [Mac.doFinal(byte[] input) -> byte[]]";
                 state.inputHex = bytesToHex(input, maxPrintableLength);
                 state.inputString = bytesToString(input, maxPrintableLength);
-                state.inputFingerprint = fingerprint(input, typeof(input));
+                state.inputFingerprint = fingerprint(input, typeof (input));
 
                 const macLength = this.getMacLength();
                 state.bytesWritten = macLength;
@@ -1297,7 +1297,7 @@ Java.perform(function () {
 
                 if (output !== null) {
                     state.output = bytesToHex(output, maxPrintableLength);
-                    state.outputFingerprint = fingerprint(output, typeof(output));
+                    state.outputFingerprint = fingerprint(output, typeof (output));
                 } else {
                     state.output = "<undefined>";
                 }
@@ -1375,13 +1375,13 @@ Java.perform(function () {
                 inputHex: bytesToHex(input, maxPrintableLength),
                 inputString: bytesToString(input, maxPrintableLength),
                 inputLength: input.length,
-                inputFingerprint: fingerprint(input, typeof(input)),
+                inputFingerprint: fingerprint(input, typeof (input)),
                 flagNumerical: flags,
                 flagString: flagString,
                 outputHex: bytesToHex(encodedString, maxPrintableLength),
                 outputString: bytesToString(encodedString, maxPrintableLength),
                 outputLength: encodedString.length,
-                outputFingerprint: fingerprint(encodedString, typeof(encodedString)),
+                outputFingerprint: fingerprint(encodedString, typeof (encodedString)),
                 stackTrace: traceStack()
             }
 
@@ -1414,7 +1414,7 @@ Java.perform(function () {
                 inputHex: bytesToHex(input, maxPrintableLength, offset, len),
                 inputString: bytesToString(input, maxPrintableLength, offset, len),
                 inputLength: input.length,
-                inputFingerprint: fingerprint(input, typeof(input), offset, len),
+                inputFingerprint: fingerprint(input, typeof (input), offset, len),
                 inputOffset: offset,
                 inputLen: len,
                 flagNumerical: flags,
@@ -1422,7 +1422,7 @@ Java.perform(function () {
                 outputHex: bytesToHex(encodedString, maxPrintableLength),
                 outputString: bytesToString(encodedString, maxPrintableLength),
                 outputLength: encodedString.length,
-                outputFingerprint: fingerprint(encodedString, typeof(encodedString)),
+                outputFingerprint: fingerprint(encodedString, typeof (encodedString)),
                 stackTrace: traceStack()
             }
 
@@ -1458,12 +1458,12 @@ Java.perform(function () {
                 inputHex: bytesToHex(input, maxPrintableLength),
                 inputString: bytesToString(input, maxPrintableLength),
                 inputLength: input.length,
-                inputFingerprint: fingerprint(input, typeof(input)),
+                inputFingerprint: fingerprint(input, typeof (input)),
                 flagNumerical: flags,
                 flagString: flagString,
                 outputString: truncated,
                 outputLength: encodedString.length,
-                outputFingerprint: fingerprint(encodedString, typeof(encodedString)),
+                outputFingerprint: fingerprint(encodedString, typeof (encodedString)),
                 stackTrace: traceStack()
             }
 
@@ -1498,14 +1498,14 @@ Java.perform(function () {
                 inputHex: bytesToHex(input, maxPrintableLength, offset, len),
                 inputString: bytesToString(input, maxPrintableLength, offset, len),
                 inputLength: input.length,
-                inputFingerprint: fingerprint(input, typeof(input), offset, len),
+                inputFingerprint: fingerprint(input, typeof (input), offset, len),
                 inputOffset: offset,
                 inputLen: len,
                 flagNumerical: flags,
                 flagString: flagString,
                 outputString: truncated,
                 outputLength: encodedString.length,
-                outputFingerprint: fingerprint(encodedString, typeof(encodedString)),
+                outputFingerprint: fingerprint(encodedString, typeof (encodedString)),
                 stackTrace: traceStack()
             }
 
@@ -1540,13 +1540,13 @@ Java.perform(function () {
                 overload: "1. [Base64.decode(java.lang.String str, int flags) -> byte[]]",
                 encodedInput: truncated,
                 inputLength: str.length,
-                inputFingerprint: fingerprint(str, typeof(str)),
+                inputFingerprint: fingerprint(str, typeof (str)),
                 flagNumerical: flags,
                 flagString: flagString,
                 outputHex: bytesToHex(decodedString, maxPrintableLength),
                 outputString: bytesToString(decodedString, maxPrintableLength),
                 outputLength: decodedString.length,
-                outputFingerprint: fingerprint(decodedString, typeof(decodedString)),
+                outputFingerprint: fingerprint(decodedString, typeof (decodedString)),
                 stackTrace: traceStack()
             }
 
@@ -1576,14 +1576,14 @@ Java.perform(function () {
                 overload: "2. [Base64.decode(byte[] input, int flags) -> byte[]]",
                 encodedInputHex: bytesToHex(input, maxPrintableLength),
                 encodedInputString: bytesToString(input, maxPrintableLength),
-                inputFingerprint: fingerprint(input, typeof(input)),
+                inputFingerprint: fingerprint(input, typeof (input)),
                 inputLength: input.length,
                 flagNumerical: flags,
                 flagString: flagString,
                 outputHex: bytesToHex(decodedString, maxPrintableLength),
                 outputString: bytesToString(decodedString, maxPrintableLength),
                 outputLength: decodedString.length,
-                outputFingerprint: fingerprint(decodedString, typeof(decodedString)),
+                outputFingerprint: fingerprint(decodedString, typeof (decodedString)),
                 stackTrace: traceStack()
             }
 
@@ -1616,13 +1616,13 @@ Java.perform(function () {
                 encodedInputHex: bytesToHex(input, maxPrintableLength, offset, len),
                 encodedInputString: bytesToString(input, maxPrintableLength, offset, len),
                 inputLength: input.length,
-                inputFingerprint: fingerprint(input, typeof(input), offset, len),
+                inputFingerprint: fingerprint(input, typeof (input), offset, len),
                 flagNumerical: flags,
                 flagString: flagString,
                 outputHex: bytesToHex(decodedString, maxPrintableLength),
                 outputString: bytesToString(decodedString, maxPrintableLength),
                 outputLength: decodedString.length,
-                outputFingerprint: fingerprint(decodedString, typeof(decodedString)),
+                outputFingerprint: fingerprint(decodedString, typeof (decodedString)),
                 stackTrace: traceStack()
             }
 
@@ -1632,5 +1632,131 @@ Java.perform(function () {
         };
     } catch (e) {
         console.log("[+] ERROR - 3. [Base64.decode(byte[] input, int offset, int len, int flags) -> byte[]]: " + e.message);
+    }
+
+    //  -------------------------
+    // | SecretKeySpec overloads |
+    //  -------------------------
+    const SecretKeySpec = Java.use("javax.crypto.spec.SecretKeySpec");
+
+    //  -------------------------------
+    // | SecretKeySpec.$init overloads |
+    //  -------------------------------
+    try { // 1. [SecretKeySpec.$init(byte[] key, String algorithm) -> void]
+        const initKeySpec = SecretKeySpec.$init.overload(
+            "[B",
+            "java.lang.String"
+        );
+
+        initKeySpec.implementation = function (key, algorithm) {
+            initKeySpec.call(this, key, algorithm);
+            const objectId = getObjectId("SecretKeySpec", this);
+
+            const state = {
+                objectId: objectId,
+                timestamp: Date.now(),
+                instanceOverload: "1. [SecretKeySpec.$init(byte[] key, String algorithm) -> void]",
+                algorithm: this.getAlgorithm(),
+                runtimeClass: this.getClass().getName(),
+                encodingFormat: this.getFormat(),
+                key: bytesToHex(key, maxPrintableLength),
+                keyLength: this.getEncoded().length,
+                stackTrace: traceStack()
+            };
+
+            logging(state);
+        };
+    } catch (e) {
+        console.log("[+] ERROR - 1. [SecretKeySpec.$init(byte[] key, String algorithm) -> void]: " + e.message);
+    }
+
+    try { // 2. [SecretKeySpec.$init(byte[] key, int offset, int len, String algorithm) -> void]
+        const initKeySpec = SecretKeySpec.$init.overload(
+            "[B",
+            "int",
+            "int",
+            "java.lang.String"
+        );
+
+        initKeySpec.implementation = function (key, offset, len, algorithm) {
+            initKeySpec.call(this, key, offset, len, algorithm);
+            const objectId = getObjectId("SecretKeySpec", this);
+
+            const state = {
+                objectId: objectId,
+                timestamp: Date.now(),
+                instanceOverload: "2. [SecretKeySpec.$init(byte[] key, int offset, int len, String algorithm) -> void]",
+                algorithm: this.getAlgorithm(),
+                runtimeClass: this.getClass().getName(),
+                encodingFormat: this.getFormat(),
+                key: bytesToHex(key, maxPrintableLength, offset, len),
+                keyLength: this.getEncoded().length,
+                stackTrace: traceStack()
+            };
+
+            logging(state);
+        };
+    } catch (e) {
+        console.log("[+] ERROR - 2. [SecretKeySpec.$init(byte[] key, int offset, int len, String algorithm) -> void]: " + e.message);
+    }
+
+    //  ---------------------------
+    // | IvParameterSpec overloads |
+    //  ---------------------------
+    const IvParameterSpec = Java.use('javax.crypto.spec.IvParameterSpec');
+
+    //  ---------------------------------
+    // | IvParameterSpec.$init overloads |
+    //  ---------------------------------
+    try { // 1. [IvParameterSpec(byte[] iv) -> void]
+        const initIvKey = IvParameterSpec.$init.overload(
+            "[B"
+        );
+
+        initIvKey.implementation = function (iv) {
+            initIvKey.call(this, iv);
+            const objectId = getObjectId("IvParameterSpec", this);
+
+            const state = {
+                objectId: objectId,
+                timestamp: Date.now(),
+                instanceOverload: "1. [IvParameterSpec(byte[] iv) -> void]",
+                iv: bytesToHex(iv, maxPrintableLength),
+                storedIv: bytesToHex(this.getIV(), maxPrintableLength),
+                ivLength: this.getIV().length,
+                stackTrace: traceStack()
+            };
+
+            logging(state);
+        };
+    } catch (e) {
+        console.log("[+] ERROR - 1. [IvParameterSpec(byte[] iv) -> void]: " + e.message);
+    }
+
+    try { // 2. [IvParameterSpec(byte[] iv, int offset, int len) -> void]
+        const initIvKey = IvParameterSpec.$init.overload(
+            "[B",
+            "int",
+            "int"
+        );
+
+        initIvKey.implementation = function (iv, offset, len) {
+            initIvKey.call(this, iv, offset, len);
+            const objectId = getObjectId("IvParameterSpec", this);
+
+            const state = {
+                objectId: objectId,
+                timestamp: Date.now(),
+                instanceOverload: "2. [IvParameterSpec(byte[] iv, int offset, int len) -> void]",
+                iv: bytesToHex(iv, maxPrintableLength, offset, len),
+                storedIv: bytesToHex(this.getIV(), maxPrintableLength, offset, len),
+                ivLength: this.getIV().length,
+                stackTrace: traceStack()
+            };
+
+            logging(state);
+        };
+    } catch (e) {
+        console.log("[+] ERROR - 2. [IvParameterSpec(byte[] iv, int offset, int len) -> void]: " + e.message);
     }
 });
